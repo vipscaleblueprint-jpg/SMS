@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/tags_provider.dart';
-import '../providers/contacts_provider.dart';
-import '../models/tag.dart';
-import 'modals/edit_tag_dialog.dart';
-import 'modals/delete_tag_dialog.dart';
+import '../../providers/tags_provider.dart';
+import '../../providers/contacts_provider.dart';
+import '../../models/tag.dart';
+import '../modals/edit_tag_dialog.dart';
+import '../modals/delete_tag_dialog.dart';
 
 class TagsList extends ConsumerStatefulWidget {
   const TagsList({super.key});

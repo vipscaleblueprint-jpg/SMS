@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:csv/csv.dart';
+import 'dart:io';
+import 'package:flutter_contacts/flutter_contacts.dart' as flutter_contacts;
+import 'package:permission_handler/permission_handler.dart';
 import '../widgets/modals/add_tag_dialog.dart';
-import '../widgets/contacts_list.dart';
-import '../widgets/tags_list.dart';
+import '../widgets/list/contacts_list.dart';
+import '../widgets/list/tags_list.dart';
+import '../providers/contacts_provider.dart';
+import '../providers/tags_provider.dart';
+import '../models/contact.dart';
+import '../models/tag.dart';
 import 'settings_screen.dart';
 import 'add_contact_screen.dart';
 
@@ -62,30 +70,259 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   bool _showAllContacts = true;
   final GlobalKey _addContactBtnKey = GlobalKey();
   final GlobalKey _profileKey = GlobalKey();
+  bool _isImporting = false; // Flag to prevent concurrent imports
 
-  Future<void> _pickCsvFile() async {
+  Future<void> _importCsvContacts() async {
+    // Prevent concurrent imports
+    if (_isImporting) {
+      debugPrint('⚠️ Import already in progress, ignoring request');
+      return;
+    }
+
+    setState(() => _isImporting = true);
+
     try {
+      debugPrint('🔵 Starting CSV import...');
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
       );
 
-      if (result != null) {
-        // PlatformFile file = result.files.first;
-        // String? filePath = file.path;
+      if (result != null && result.files.first.path != null) {
+        final file = File(result.files.first.path!);
+        debugPrint('🔵 CSV file selected: ${file.path}');
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Selected file: ${result.files.first.name}')),
+        final csvString = await file.readAsString();
+        debugPrint('🔵 CSV file read, length: ${csvString.length} characters');
+
+        // Parse CSV
+        final List<List<dynamic>> csvData = const CsvToListConverter().convert(
+          csvString,
         );
+        debugPrint('🔵 CSV parsed, total rows: ${csvData.length}');
 
-        // TODO: Process CSV file content here
+        if (csvData.isEmpty) {
+          debugPrint('🔴 CSV file is empty');
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('CSV file is empty')));
+          }
+          return;
+        }
+
+        // Print header row for verification
+        if (csvData.isNotEmpty) {
+          debugPrint('🔵 CSV Header: ${csvData[0]}');
+        }
+
+        int importedCount = 0;
+        int skippedCount = 0;
+        // Skip header row, start from index 1
+        // CSV format: Contact Id, First Name, Last Name, Name, Phone, Email, Created, Last Activity, Tags
+        debugPrint('🔵 Processing ${csvData.length - 1} data rows...');
+
+        for (int i = 1; i < csvData.length; i++) {
+          final row = csvData[i];
+          debugPrint('🔵 Row $i: $row (length: ${row.length})');
+
+          if (row.length >= 5) {
+            // Extract ALL possible data from CSV columns
+            // ignore: unused_local_variable
+            final _csvContactId = row.length > 0
+                ? row[0].toString().trim()
+                : ''; // Not used - provider generates new IDs
+            final firstName = row.length > 1 ? row[1].toString().trim() : '';
+            final lastName = row.length > 2 ? row[2].toString().trim() : '';
+            // ignore: unused_local_variable
+            final _fullName = row.length > 3
+                ? row[3].toString().trim()
+                : ''; // Not used - we use first/last separately
+            final phone = row.length > 4 ? row[4].toString().trim() : '';
+            final email = row.length > 5 ? row[5].toString().trim() : '';
+            final createdStr = row.length > 6 ? row[6].toString().trim() : '';
+            // ignore: unused_local_variable
+            final _lastActivityStr = row.length > 7
+                ? row[7].toString().trim()
+                : ''; // Not in Contact model
+            final tagsStr = row.length > 8
+                ? row[8].toString().trim()
+                : ''; // Parse and associate tags
+
+            debugPrint(
+              '🔵 Extracted - FirstName: "$firstName", LastName: "$lastName", Phone: "$phone", Email: "$email", Tags: "$tagsStr"',
+            );
+
+            // Parse created date if available, otherwise use current time
+            DateTime createdDate = DateTime.now();
+            if (createdStr.isNotEmpty) {
+              try {
+                createdDate = DateTime.parse(createdStr);
+                debugPrint('🔵 Parsed created date: $createdDate');
+              } catch (e) {
+                debugPrint('⚠️ Failed to parse date "$createdStr": $e');
+                // If parsing fails, use current time
+                createdDate = DateTime.now();
+              }
+            }
+
+            // Parse tags from CSV (comma-separated)
+            List<Tag> contactTags = [];
+            if (tagsStr.isNotEmpty) {
+              final tagNames = tagsStr
+                  .split(',')
+                  .map((t) => t.trim())
+                  .where((t) => t.isNotEmpty)
+                  .toList();
+              debugPrint('🔵 Found ${tagNames.length} tags: $tagNames');
+
+              for (final tagName in tagNames) {
+                try {
+                  debugPrint('🔵 Creating/finding tag: "$tagName"');
+                  final tag = await ref
+                      .read(tagsProvider.notifier)
+                      .getOrCreateTag(tagName);
+                  contactTags.add(tag);
+                  debugPrint('✅ Tag added: ${tag.name} (${tag.id})');
+                } catch (e) {
+                  // Skip tag if there's an error
+                  debugPrint('🔴 Error creating tag "$tagName": $e');
+                }
+              }
+            }
+
+            // Validate required fields
+            if (firstName.isNotEmpty && phone.isNotEmpty) {
+              debugPrint('✅ Validation passed for: $firstName $lastName');
+              final contact = Contact(
+                contact_id:
+                    '', // Will be generated by provider (not using csvContactId)
+                first_name: firstName,
+                last_name: lastName,
+                phone: phone,
+                email: email.isNotEmpty ? email : null,
+                created: createdDate,
+                tags: contactTags,
+              );
+
+              debugPrint('🔵 Adding contact to database...');
+              await ref.read(contactsProvider.notifier).addContact(contact);
+              importedCount++;
+              debugPrint(
+                '✅ Contact added successfully! Total imported: $importedCount',
+              );
+            } else {
+              skippedCount++;
+              debugPrint(
+                '⚠️ Row $i skipped - Missing required fields (firstName: "$firstName", phone: "$phone")',
+              );
+            }
+          } else {
+            skippedCount++;
+            debugPrint(
+              '⚠️ Row $i skipped - Insufficient columns (${row.length} < 5)',
+            );
+          }
+        }
+
+        debugPrint(
+          '🎉 CSV Import Complete! Imported: $importedCount, Skipped: $skippedCount',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Successfully imported $importedCount contacts${skippedCount > 0 ? ' ($skippedCount skipped)' : ''}',
+              ),
+            ),
+          );
+        }
       } else {
-        // User canceled the picker
+        debugPrint('🔴 No file selected or file path is null');
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error picking file: $e')));
+      debugPrint('🔴 CSV Import Error: $e');
+      debugPrint('🔴 Stack trace: ${StackTrace.current}');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error importing CSV: $e')));
+      }
+    } finally {
+      // Always reset the flag when done
+      if (mounted) {
+        setState(() => _isImporting = false);
+      }
+      debugPrint('🔵 Import process completed, flag reset');
+    }
+  }
+
+  Future<void> _importLocalContacts() async {
+    try {
+      // Request permission
+      if (await Permission.contacts.request().isGranted) {
+        // Fetch contacts from device
+        final contacts = await flutter_contacts.FlutterContacts.getContacts(
+          withProperties: true,
+          withPhoto: false,
+        );
+
+        if (contacts.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No contacts found on device')),
+            );
+          }
+          return;
+        }
+
+        int importedCount = 0;
+        for (final deviceContact in contacts) {
+          final firstName = deviceContact.name.first;
+          final lastName = deviceContact.name.last;
+          final phone = deviceContact.phones.isNotEmpty
+              ? deviceContact.phones.first.number
+              : '';
+          final email = deviceContact.emails.isNotEmpty
+              ? deviceContact.emails.first.address
+              : '';
+
+          if (firstName.isNotEmpty && phone.isNotEmpty) {
+            final contact = Contact(
+              contact_id: '', // Will be generated by provider
+              first_name: firstName,
+              last_name: lastName,
+              phone: phone,
+              email: email,
+              created: DateTime.now(),
+              tags: [],
+            );
+
+            await ref.read(contactsProvider.notifier).addContact(contact);
+            importedCount++;
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully imported $importedCount contacts'),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Contacts permission denied')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error importing contacts: $e')));
+      }
     }
   }
 
@@ -114,15 +351,39 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       color: Colors.white,
       elevation: 8,
       items: [
-        const PopupMenuItem<String>(value: 'import', child: Text('Import csv')),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
+          value: 'import_csv',
+          enabled: !_isImporting,
+          child: Row(
+            children: [
+              Text('Import CSV'),
+              if (_isImporting) ...[
+                const SizedBox(width: 8),
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ],
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'import_local',
+          enabled: !_isImporting,
+          child: const Text('Import Local Contacts'),
+        ),
+        PopupMenuItem<String>(
           value: 'single',
-          child: Text('Add Single Contact'),
+          enabled: !_isImporting,
+          child: const Text('Add Single Contact'),
         ),
       ],
     ).then((value) {
-      if (value == 'import') {
-        _pickCsvFile();
+      if (value == 'import_csv') {
+        _importCsvContacts();
+      } else if (value == 'import_local') {
+        _importLocalContacts();
       } else if (value == 'single') {
         // Navigate to Add Contact Screen
         Navigator.of(context).push(

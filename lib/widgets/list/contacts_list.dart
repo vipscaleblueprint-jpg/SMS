@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/contacts_provider.dart';
-import '../models/contact.dart';
+import '../../providers/contacts_provider.dart';
+import '../../models/contact.dart';
 
 class ContactsList extends ConsumerStatefulWidget {
   const ContactsList({super.key});

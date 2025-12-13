@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,10 +13,13 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'SMS Manager',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.amber,
+        ), // Updated to match design
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      initialRoute: '/',
+      routes: {'/': (context) => const LoginScreen()},
       debugShowCheckedModeBanner: false,
     );
   }

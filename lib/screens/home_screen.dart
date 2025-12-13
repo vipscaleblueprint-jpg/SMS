@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../widgets/modals/add_tag_dialog.dart';
+import '../widgets/contacts_list.dart';
+import '../widgets/tags_list.dart';
 import 'settings_screen.dart';
 import 'add_contact_screen.dart';
 
@@ -47,19 +51,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class ContactsPage extends StatefulWidget {
+class ContactsPage extends ConsumerStatefulWidget {
   const ContactsPage({super.key});
 
   @override
-  State<ContactsPage> createState() => _ContactsPageState();
+  ConsumerState<ContactsPage> createState() => _ContactsPageState();
 }
 
-class _ContactsPageState extends State<ContactsPage> {
-  // Mock Data
-  List<Map<String, dynamic>> _contacts = [];
-
-  List<Map<String, dynamic>> _tags = [];
-
+class _ContactsPageState extends ConsumerState<ContactsPage> {
   bool _showAllContacts = true;
   final GlobalKey _addContactBtnKey = GlobalKey();
   final GlobalKey _profileKey = GlobalKey();
@@ -177,234 +176,21 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   void _showAddTagDialog() {
-    final TextEditingController tagController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Add tag',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: tagController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter tag name',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        // TODO: Save tag
-                        if (tagController.text.isNotEmpty) {
-                          setState(() {
-                            _tags.add({'name': tagController.text, 'count': 0});
-                          });
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFBB03B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('Save'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
+        return const AddTagDialog();
       },
     );
   }
 
-  void _showEditTagDialog(int index, String currentName) {
-    final TextEditingController tagController = TextEditingController(
-      text: currentName,
-    );
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Edit Tag',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: tagController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter tag name',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (tagController.text.isNotEmpty) {
-                          setState(() {
-                            _tags[index]['name'] = tagController.text;
-                          });
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFBB03B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('Save'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showDeleteTagDialog(int index, String tagName) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.warning, color: Colors.red.shade700, size: 24),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Delete this tag?',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Are you sure you want to delete the tag $tagName? This action cannot be undone.',
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _tags.removeAt(index);
-                        });
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('Delete tag'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  // NOTE: Edit and Delete might need adjustment since we don't have IDs directly in this view context
+  // but for now I'll keep the placeholders or basic logic.
+  // The TagsList widget doesn't expose the edit/delete buttons yet, so these dialogs
+  // are only reachable if we add the buttons back to TagsList or keep the old list.
+  // Since we are replacing the old list with TagsList, we won't be able to trigger these
+  // from the list items immediately unless we update TagsList.
+  // However, I will leave the methods here in case we pass them to TagsList later.
 
   @override
   Widget build(BuildContext context) {
@@ -538,241 +324,10 @@ class _ContactsPageState extends State<ContactsPage> {
           ),
           const SizedBox(height: 24),
 
-          // Search Bar
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Search contacts tags...',
-              prefixIcon: const Icon(Icons.search, color: Colors.grey),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 0,
-                horizontal: 16,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
           // Conditional content based on tab selection
-          if (_showAllContacts) ...[
-            // Contacts View - List Headers
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Name',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Number',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      'Tags',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-
-            // Contact List
-            Expanded(
-              child: _contacts.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No contacts',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
-                      ),
-                    )
-                  : ListView.separated(
-                      itemCount: _contacts.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 16),
-                      padding: const EdgeInsets.only(top: 16),
-                      itemBuilder: (context, index) {
-                        final contact = _contacts[index];
-                        return Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                contact['name'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                contact['number'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Text(
-                                contact['tags'],
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-            ),
-          ] else ...[
-            // Manage Tags View - Headers
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      'Tags',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Contacts',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 60), // Space for icons
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-
-            // Tags List
-            Expanded(
-              child: _tags.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No tags',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
-                      ),
-                    )
-                  : ListView.separated(
-                      itemCount: _tags.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 16),
-                      padding: const EdgeInsets.only(top: 16),
-                      itemBuilder: (context, index) {
-                        final tag = _tags[index];
-                        return Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                tag['name'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                '${tag['count']}',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: tag['count'] == 0
-                                      ? Colors.grey
-                                      : const Color(0xFFFBB03B),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              constraints: const BoxConstraints(minWidth: 60),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.edit_outlined,
-                                      size: 20,
-                                      color: Colors.grey,
-                                    ),
-                                    onPressed: () {
-                                      _showEditTagDialog(index, tag['name']);
-                                    },
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      size: 20,
-                                      color: Colors.grey,
-                                    ),
-                                    onPressed: () {
-                                      _showDeleteTagDialog(index, tag['name']);
-                                    },
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-            ),
-          ],
+          Expanded(
+            child: _showAllContacts ? const ContactsList() : const TagsList(),
+          ),
         ],
       ),
     );

@@ -1,45 +1,125 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+import '../models/contact.dart';
+import '../models/tag.dart';
+import '../providers/contacts_provider.dart';
+import '../providers/tags_provider.dart';
 
-class AddContactScreen extends StatefulWidget {
+class AddContactScreen extends ConsumerStatefulWidget {
   const AddContactScreen({super.key});
 
   @override
-  State<AddContactScreen> createState() => _AddContactScreenState();
+  ConsumerState<AddContactScreen> createState() => _AddContactScreenState();
 }
 
-class _AddContactScreenState extends State<AddContactScreen> {
+class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  List<String> _selectedTags = ['VIP SCALE']; // Example with one tag
+  List<Tag> _selectedTags = [];
 
-  void _removeTag(int index) {
+  void _removeTag(Tag tag) {
     setState(() {
-      _selectedTags.removeAt(index);
+      _selectedTags.removeWhere((t) => t.id == tag.id);
     });
   }
 
-  void _showAddTagDialog() {
-    // TODO: Show dialog to select/add tags
+  void _showTagSelectionDialog() {
+    final availableTags = ref.read(tagsProvider);
+    // Filter out tags that are already selected
+    final unselectedTags = availableTags.where((tag) {
+      return !_selectedTags.any((selected) => selected.id == tag.id);
+    }).toList();
+
+    if (unselectedTags.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No available tags to add')));
+      return;
+    }
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Tag'),
-        content: const Text('Tag selection coming soon'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Select Tag'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: unselectedTags.length,
+              itemBuilder: (context, index) {
+                final tag = unselectedTags[index];
+                return ListTile(
+                  title: Text(tag.name),
+                  onTap: () {
+                    setState(() {
+                      _selectedTags.add(tag);
+                    });
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  void _saveContact() {
-    // TODO: Save contact logic
-    Navigator.of(context).pop();
+  Future<void> _saveContact() async {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (firstName.isEmpty || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name and phone are required')),
+      );
+      return;
+    }
+
+    final contact = Contact(
+      contact_id: const Uuid().v4(),
+      first_name: firstName,
+      last_name: lastName,
+      phone: phone,
+      email: null,
+      created: DateTime.now(),
+      tags: _selectedTags,
+    );
+
+    try {
+      // Add contact via provider (ref provided by ConsumerState)
+      await ref.read(contactsProvider.notifier).addContact(contact);
+
+      if (!mounted) return;
+
+      // Log success
+      debugPrint('✅ Contact added: ${contact.name}, ${contact.phone}');
+
+      // Show success UI
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contact added successfully')),
+      );
+
+      Navigator.of(context).pop(); // Go back to contacts list
+    } catch (e) {
+      debugPrint('❌ Failed to add contact: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to add contact')));
+      }
+    }
   }
 
   @override
@@ -179,7 +259,7 @@ class _AddContactScreenState extends State<AddContactScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 ElevatedButton(
-                  onPressed: _showAddTagDialog,
+                  onPressed: _showTagSelectionDialog,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFBB03B),
                     foregroundColor: Colors.white,
@@ -211,19 +291,17 @@ class _AddContactScreenState extends State<AddContactScreen> {
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _selectedTags.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final tag = entry.value;
+                children: _selectedTags.map((tag) {
                   return Chip(
                     label: Text(
-                      tag,
+                      tag.name,
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.black87,
                       ),
                     ),
                     deleteIcon: const Icon(Icons.close, size: 16),
-                    onDeleted: () => _removeTag(index),
+                    onDeleted: () => _removeTag(tag),
                     backgroundColor: Colors.grey[200],
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),

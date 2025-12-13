@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class AddContactScreen extends StatefulWidget {
-  const AddContactScreen({super.key});
+  final Map<String, dynamic>? contact;
+
+  const AddContactScreen({super.key, this.contact});
 
   @override
   State<AddContactScreen> createState() => _AddContactScreenState();
@@ -12,7 +14,25 @@ class _AddContactScreenState extends State<AddContactScreen> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  List<String> _selectedTags = ['VIP SCALE']; // Example with one tag
+  List<String> _selectedTags = []; // Changed to empty by default
+
+  bool get _isEditing => widget.contact != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      _firstNameController.text = widget.contact!['name'] ?? '';
+      // Assuming 'number' is just the digits. If it has Mock data format 09...
+      _phoneController.text = widget.contact!['number'] ?? '';
+      // Logic to parse tags string "5 Tags" to list?
+      // For now, let's mock some tags if editing, or parse if possible.
+      // The mock data had "5 Tags" string, let's just add the VIP one for demo
+      _selectedTags = ['VIP SCALE'];
+    } else {
+      _selectedTags = ['VIP SCALE']; // Default for new?
+    }
+  }
 
   void _removeTag(int index) {
     setState(() {
@@ -39,6 +59,11 @@ class _AddContactScreenState extends State<AddContactScreen> {
 
   void _saveContact() {
     // TODO: Save contact logic
+    Navigator.of(context).pop();
+  }
+
+  void _deleteContact() {
+    // TODO: Delete contact logic
     Navigator.of(context).pop();
   }
 
@@ -84,13 +109,10 @@ class _AddContactScreenState extends State<AddContactScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: Text(
-                'New Contact',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 32),
+            // Removed Big "New Contact" Title as per new design implied
+            // or we keep it if desired? The screenshot doesn't show the header title clearly
+            // explicitly, usually standard iOS modal style.
+            // Let's remove the big title for now to match the "clean" look or make it smaller.
 
             // Name Section
             const Text(
@@ -102,6 +124,7 @@ class _AddContactScreenState extends State<AddContactScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
               child: Column(
                 children: [
@@ -147,21 +170,41 @@ class _AddContactScreenState extends State<AddContactScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
               child: Row(
                 children: [
-                  const Text(
-                    '+63',
-                    style: TextStyle(fontSize: 16, color: Colors.black87),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        right: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                    child: const Text(
+                      'Sim 1',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      style: const TextStyle(
+                        color: Color(0xFFFBB03B),
+                        fontWeight: FontWeight.bold,
+                      ), // Yellow text
                       decoration: const InputDecoration(
                         border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16),
                       ),
                     ),
                   ),
@@ -206,6 +249,7 @@ class _AddContactScreenState extends State<AddContactScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
               padding: const EdgeInsets.all(16),
               child: Wrap(
@@ -219,20 +263,55 @@ class _AddContactScreenState extends State<AddContactScreen> {
                       tag,
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.black87,
+                        color: Colors.grey, // Grey text for tag
                       ),
                     ),
                     deleteIcon: const Icon(Icons.close, size: 16),
                     onDeleted: () => _removeTag(index),
-                    backgroundColor: Colors.grey[200],
+                    backgroundColor: Colors.white, // White background
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: Colors.grey[300]!),
+                      side: BorderSide(color: Colors.grey.shade300),
                     ),
                   );
                 }).toList(),
               ),
             ),
+            const SizedBox(height: 32),
+
+            // Delete Button (Only if editing)
+            if (_isEditing)
+              SizedBox(
+                width:
+                    double.infinity, // Full width removed? Design shows small?
+                // Actually design shows it left aligned or perhaps width constrained.
+                // Screenshot shows it's a pill shaped button, let's make it fit content or small fixed width
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ElevatedButton(
+                    onPressed: _deleteContact,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      'Delete Contact',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

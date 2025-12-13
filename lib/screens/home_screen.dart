@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'settings_screen.dart';
 import 'add_contact_screen.dart';
+import 'send_screen.dart';
+
+import 'campaigns_screen.dart';
+
+import 'tag_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,8 +19,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
+    const CampaignsScreen(),
     const ContactsPage(),
-    const Center(child: Text('Send Page')),
+    const SendScreen(),
   ];
 
   @override
@@ -33,6 +39,10 @@ class _HomeScreenState extends State<HomeScreen> {
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
         items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.campaign),
+            label: 'Campaigns',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.contact_page_outlined),
             label: 'Contacts',
@@ -56,13 +66,47 @@ class ContactsPage extends StatefulWidget {
 
 class _ContactsPageState extends State<ContactsPage> {
   // Mock Data
-  List<Map<String, dynamic>> _contacts = [];
+  final List<Map<String, dynamic>> _allContacts = [
+    {'name': 'Antony', 'number': '09123456789', 'tags': '5 Tags'},
+    {'name': 'Berna', 'number': '09345612368', 'tags': '5 Tags'},
+    {'name': 'Cathy', 'number': '09345612368', 'tags': '5 Tags'},
+    {'name': 'Doglas', 'number': '09345612368', 'tags': '5 Tags'},
+  ];
+  List<Map<String, dynamic>> _filteredContacts = [];
 
   List<Map<String, dynamic>> _tags = [];
 
   bool _showAllContacts = true;
   final GlobalKey _addContactBtnKey = GlobalKey();
   final GlobalKey _profileKey = GlobalKey();
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredContacts = _allContacts;
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredContacts = _allContacts.where((contact) {
+        final name = contact['name'].toString().toLowerCase();
+        final tags = contact['tags'].toString().toLowerCase();
+        final number = contact['number'].toString().toLowerCase();
+        return name.contains(query) ||
+            tags.contains(query) ||
+            number.contains(query);
+      }).toList();
+    });
+  }
 
   Future<void> _pickCsvFile() async {
     try {
@@ -421,36 +465,31 @@ class _ContactsPageState extends State<ContactsPage> {
                 key: _profileKey,
                 onTap: _showProfileMenu,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(30),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFBB03B),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
+                      CircleAvatar(
+                        backgroundColor: Color(0xFFFBB03B),
+                        radius: 16,
+                        child: Icon(
                           Icons.person,
                           color: Colors.white,
-                          size: 16,
+                          size: 20,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
+                      SizedBox(width: 8),
+                      Text(
                         'Antony John',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
+                      SizedBox(width: 12),
                     ],
                   ),
                 ),
@@ -540,6 +579,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
           // Search Bar
           TextField(
+            controller: _searchController,
             decoration: InputDecoration(
               hintText: 'Search contacts tags...',
               prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -604,7 +644,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
             // Contact List
             Expanded(
-              child: _contacts.isEmpty
+              child: _filteredContacts.isEmpty
                   ? const Center(
                       child: Text(
                         'No contacts',
@@ -612,21 +652,32 @@ class _ContactsPageState extends State<ContactsPage> {
                       ),
                     )
                   : ListView.separated(
-                      itemCount: _contacts.length,
+                      itemCount: _filteredContacts.length,
                       separatorBuilder: (context, index) =>
                           const SizedBox(height: 16),
                       padding: const EdgeInsets.only(top: 16),
                       itemBuilder: (context, index) {
-                        final contact = _contacts[index];
+                        final contact = _filteredContacts[index];
                         return Row(
                           children: [
                             Expanded(
                               flex: 2,
-                              child: Text(
-                                contact['name'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black87,
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          AddContactScreen(contact: contact),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  contact['name'],
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ),
@@ -709,14 +760,26 @@ class _ContactsPageState extends State<ContactsPage> {
                           children: [
                             Expanded(
                               flex: 3,
-                              child: Text(
-                                tag['name'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black87,
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => TagDetailScreen(
+                                        tagName: tag['name'],
+                                        peopleCount: 33, // Mock count
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  tag['name'],
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
                               ),
                             ),
                             Expanded(

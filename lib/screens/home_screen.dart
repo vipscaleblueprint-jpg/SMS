@@ -14,6 +14,11 @@ import '../models/contact.dart';
 import '../models/tag.dart';
 import 'settings_screen.dart';
 import 'add_contact_screen.dart';
+import 'send_screen.dart';
+
+import 'campaigns_screen.dart';
+
+import 'tag_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,8 +31,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
+    const CampaignsScreen(),
     const ContactsPage(),
-    const Center(child: Text('Send Page')),
+    const SendScreen(),
   ];
 
   @override
@@ -45,6 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
         items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.campaign),
+            label: 'Campaigns',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.contact_page_outlined),
             label: 'Contacts',
@@ -468,36 +478,31 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 key: _profileKey,
                 onTap: _showProfileMenu,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(30),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFBB03B),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
+                      CircleAvatar(
+                        backgroundColor: Color(0xFFFBB03B),
+                        radius: 16,
+                        child: Icon(
                           Icons.person,
                           color: Colors.white,
-                          size: 16,
+                          size: 20,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
+                      SizedBox(width: 8),
+                      Text(
                         'Antony John',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
+                      SizedBox(width: 12),
                     ],
                   ),
                 ),

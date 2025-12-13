@@ -122,6 +122,11 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
     }
   }
 
+  void _deleteContact() {
+    // TODO: Delete contact logic
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -164,13 +169,10 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: Text(
-                'New Contact',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 32),
+            // Removed Big "New Contact" Title as per new design implied
+            // or we keep it if desired? The screenshot doesn't show the header title clearly
+            // explicitly, usually standard iOS modal style.
+            // Let's remove the big title for now to match the "clean" look or make it smaller.
 
             // Name Section
             const Text(
@@ -182,6 +184,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
               child: Column(
                 children: [
@@ -227,21 +230,41 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
               child: Row(
                 children: [
-                  const Text(
-                    '+63',
-                    style: TextStyle(fontSize: 16, color: Colors.black87),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        right: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                    child: const Text(
+                      'Sim 1',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      style: const TextStyle(
+                        color: Color(0xFFFBB03B),
+                        fontWeight: FontWeight.bold,
+                      ), // Yellow text
                       decoration: const InputDecoration(
                         border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16),
                       ),
                     ),
                   ),
@@ -286,6 +309,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
               padding: const EdgeInsets.all(16),
               child: Wrap(
@@ -297,7 +321,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                       tag.name,
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.black87,
+                        color: Colors.grey, // Grey text for tag
                       ),
                     ),
                     deleteIcon: const Icon(Icons.close, size: 16),
@@ -305,12 +329,47 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                     backgroundColor: Colors.grey[200],
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: Colors.grey[300]!),
+                      side: BorderSide(color: Colors.grey.shade300),
                     ),
                   );
                 }).toList(),
               ),
             ),
+            const SizedBox(height: 32),
+
+            // Delete Button (Only if editing)
+            if (_isEditing)
+              SizedBox(
+                width:
+                    double.infinity, // Full width removed? Design shows small?
+                // Actually design shows it left aligned or perhaps width constrained.
+                // Screenshot shows it's a pill shaped button, let's make it fit content or small fixed width
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ElevatedButton(
+                    onPressed: _deleteContact,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      'Delete Contact',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

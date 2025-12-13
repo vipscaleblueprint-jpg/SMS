@@ -81,32 +81,32 @@ class _TagsListState extends ConsumerState<TagsList> {
           // ===========================
           // TABLE HEADERS
           // ===========================
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Tags',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
+          // ===========================
+          // TABLE HEADERS
+          // ===========================
+          const Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Tags',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Contacts',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Contacts',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                Expanded(
-                  // Actions column (fixed width or flex)
-                  flex: 2,
-                  child: SizedBox(), // Empty header for actions
-                ),
-              ],
-            ),
+              ),
+              Expanded(
+                // Actions column (fixed width or flex)
+                flex: 2,
+                child: SizedBox(), // Empty header for actions
+              ),
+            ],
           ),
           const Divider(height: 1),
 
@@ -133,69 +133,66 @@ class _TagsListState extends ConsumerState<TagsList> {
                           .where((c) => c.tags.any((t) => t.id == tag.id))
                           .length;
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Row(
-                          children: [
-                            // Tag Name
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                tag.name,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                      return Row(
+                        children: [
+                          // Tag Name
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              tag.name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            // Count
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                count.toString(),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: count > 0
-                                      ? const Color(0xFFFBB03B)
-                                      : Colors.grey,
-                                ),
+                          ),
+                          // Count
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              count.toString(),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: count > 0
+                                    ? const Color(0xFFFBB03B)
+                                    : Colors.grey,
                               ),
                             ),
-                            // Actions
-                            Expanded(
-                              flex: 2,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.edit_outlined,
-                                      size: 20,
-                                      color: Colors.grey,
-                                    ),
-                                    onPressed: () => _showEditTagDialog(tag),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
+                          ),
+                          // Actions
+                          Expanded(
+                            flex: 2,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 20,
+                                    color: Colors.grey,
                                   ),
-                                  const SizedBox(width: 16),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      size: 20,
-                                      color: Colors.grey,
-                                    ),
-                                    onPressed: () => _showDeleteTagDialog(tag),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
+                                  onPressed: () => _showEditTagDialog(tag),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                    color: Colors.grey,
                                   ),
-                                ],
-                              ),
+                                  onPressed: () => _showDeleteTagDialog(tag),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     },
                   ),

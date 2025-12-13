@@ -19,6 +19,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   final TextEditingController _phoneController = TextEditingController();
 
   List<Tag> _selectedTags = [];
+  bool _isEditing = false;
 
   void _removeTag(Tag tag) {
     setState(() {

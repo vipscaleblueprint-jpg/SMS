@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_number/mobile_number.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
 
@@ -13,6 +15,21 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissions();
+  }
+
+  Future<void> _checkPermissions() async {
+    // Request Phone permission via MobileNumber plugin logic
+    if (!await MobileNumber.hasPhonePermission) {
+      await MobileNumber.requestPhonePermission;
+    }
+    // Request SMS permission
+    await Permission.sms.request();
+  }
 
   void _login() {
     // TODO: Implement actual login logic

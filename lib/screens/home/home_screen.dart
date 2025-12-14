@@ -5,18 +5,18 @@ import 'package:csv/csv.dart';
 import 'dart:io';
 import 'package:flutter_contacts/flutter_contacts.dart' as flutter_contacts;
 import 'package:permission_handler/permission_handler.dart';
-import '../widgets/modals/add_tag_dialog.dart';
-import '../widgets/list/contacts_list.dart';
-import '../widgets/list/tags_list.dart';
-import '../providers/contacts_provider.dart';
-import '../providers/tags_provider.dart';
-import '../models/contact.dart';
-import '../models/tag.dart';
+import '../../widgets/modals/add_tag_dialog.dart';
+import '../../widgets/list/contacts_list.dart';
+import '../../widgets/list/tags_list.dart';
+import '../../providers/contacts_provider.dart';
+import '../../providers/tags_provider.dart';
+import '../../models/contact.dart';
+import '../../models/tag.dart';
 import 'settings_screen.dart';
 import 'add_contact_screen.dart';
-import 'send_screen.dart';
+import '../send/send_screen.dart';
 
-import 'campaigns_screen.dart';
+import '../campaigns/campaigns_screen.dart';
 
 import 'tag_detail_screen.dart';
 

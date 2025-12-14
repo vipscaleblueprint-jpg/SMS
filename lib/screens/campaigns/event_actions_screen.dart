@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'add_sms_screen.dart';
+import '../send/add_sms_screen.dart';
 
 class EventActionsScreen extends StatefulWidget {
   final String eventTitle;

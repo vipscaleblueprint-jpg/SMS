@@ -25,14 +25,10 @@ class ContactDbHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'sms_app.db');
 
-    debugPrint('📂 DB open: $path');
-
     return openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    debugPrint('🛠 Creating contact tables');
-
     await db.execute('''
       CREATE TABLE contacts (
         contact_id TEXT PRIMARY KEY,
@@ -62,8 +58,6 @@ class ContactDbHelper {
         FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
       )
     ''');
-
-    debugPrint('✅ Contact DB schema created');
   }
 
   // =========================
@@ -99,8 +93,6 @@ class ContactDbHelper {
         }, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
     });
-
-    debugPrint('✅ DB: Contact added → ${contact.name} (${contact.phone})');
   }
 
   // =========================
@@ -130,7 +122,6 @@ class ContactDbHelper {
       );
     }
 
-    debugPrint('📥 DB: Loaded ${contacts.length} contacts');
     return contacts;
   }
 
@@ -162,8 +153,6 @@ class ContactDbHelper {
       where: 'contact_id = ?',
       whereArgs: [contactId],
     );
-
-    debugPrint('🗑 DB: Contact deleted → $contactId');
   }
 
   // =========================
@@ -196,14 +185,12 @@ class ContactDbHelper {
   }
 
   // =========================
-  // DEBUG / MAINTENANCE
+  // CLEAR CONTACTS
   // =========================
 
   Future<void> clearContacts() async {
     final db = await database;
     await db.delete('contact_tags');
     await db.delete('contacts');
-
-    debugPrint('⚠️ DB: All contacts cleared');
   }
 }

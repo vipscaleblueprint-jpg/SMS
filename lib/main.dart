@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/home/home_screen.dart';
 import 'screens/signup_screen.dart';
-import 'screens/settings_screen.dart';
-import 'screens/add_contact_screen.dart';
+import 'screens/home/settings_screen.dart';
+import 'screens/home/add_contact_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));

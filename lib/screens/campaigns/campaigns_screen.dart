@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'welcome_message_screen.dart';
+import '../welcome_message_screen.dart';
 import 'event_actions_screen.dart';
-import 'settings_screen.dart';
+import '../home/settings_screen.dart';
 
 class CampaignsScreen extends StatefulWidget {
   const CampaignsScreen({super.key});

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // Add import
+import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../services/sms_service.dart';
+import '../../providers/contacts_provider.dart';
 
 class Message {
   final String id;
@@ -23,81 +26,121 @@ class Message {
   });
 }
 
-class SendScreen extends StatefulWidget {
+class SendScreen extends ConsumerStatefulWidget {
   const SendScreen({super.key});
 
   @override
-  State<SendScreen> createState() => _SendScreenState();
+  ConsumerState<SendScreen> createState() => _SendScreenState();
 }
 
-class _SendScreenState extends State<SendScreen> {
+class _SendScreenState extends ConsumerState<SendScreen> {
   final TextEditingController _recipientController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
   final List<Message> _messages = [];
-  final Map<String, Timer> _timers = {}; // Track active timers
+  final Map<String, StreamSubscription> _subscriptions =
+      {}; // Track active streams
 
-  // TODO: Remove this mock data later
-  bool _showVipChip = true;
+  // Chip state
 
   @override
   void dispose() {
     _recipientController.dispose();
     _messageController.dispose();
-    // Cancel all timers
-    for (var timer in _timers.values) {
-      timer.cancel();
+    // Cancel all subscriptions
+    for (var sub in _subscriptions.values) {
+      sub.cancel();
     }
     super.dispose();
   }
 
-  void _simulateSending(Message message) {
-    // Simulate sending roughly 1200 messages over a few seconds
-    const tickDuration = Duration(milliseconds: 100);
-    const messagesPerTick = 10; // Speed of sending
+  Future<void> _sendMessage() async {
+    final smsService = SmsService();
+    final granted = await smsService.requestPermissions();
+    if (granted != true) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('SMS permissions are required to send messages.'),
+        ),
+      );
+      return;
+    }
 
-    _timers[message.id] = Timer.periodic(tickDuration, (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
+    final text = _messageController.text;
+    if (text.trim().isEmpty) return;
 
-      setState(() {
-        if (message.isCanceled) {
-          timer.cancel();
-          _timers.remove(message.id);
-          return;
-        }
+    // 1. Gather Recipients
+    final List<String> targetPhoneNumbers = [];
 
-        message.currentSent += messagesPerTick;
+    // Check for manual entry
+    final manualRecipient = _recipientController.text.trim();
+    if (manualRecipient.isNotEmpty) {
+      targetPhoneNumbers.add(manualRecipient);
+    }
 
-        // Ensure we don't exceed total
-        if (message.currentSent >= message.totalToSend) {
-          message.currentSent = message.totalToSend;
-          message.isCompleted = true;
-          timer.cancel();
-          _timers.remove(message.id);
-        }
-      });
-    });
-  }
+    // Gather all contacts from DB
+    final contacts = ref.read(contactsProvider);
+    targetPhoneNumbers.addAll(contacts.map((c) => c.phone));
 
-  void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
+    // De-duplicate
+    final uniqueRecipients = targetPhoneNumbers.toSet().toList();
+
+    if (uniqueRecipients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No recipients selected/found.')),
+      );
+      return;
+    }
 
     final newMessage = Message(
       id: DateTime.now().toString(),
-      text: _messageController.text,
+      text: text,
       timestamp: DateTime.now(),
-      currentSent: 0, // Start at 0
+      currentSent: 0,
+      totalToSend: uniqueRecipients.length,
     );
 
     setState(() {
       _messages.add(newMessage);
       _messageController.clear();
+      // Optional: Clear recipient field if used? Maybe keep it.
     });
 
-    // Start simulation
-    _simulateSending(newMessage);
+    // 2. Start Sending via Service
+    final stream = smsService.sendBatchSms(
+      recipients: uniqueRecipients,
+      message: text,
+      delay: const Duration(milliseconds: 1000), // 1 sec delay for safety
+    );
+
+    _subscriptions[newMessage.id] = stream.listen(
+      (count) {
+        if (!mounted) return;
+        setState(() {
+          newMessage.currentSent = count;
+          if (newMessage.currentSent >= newMessage.totalToSend) {
+            newMessage.isCompleted = true;
+            _subscriptions[newMessage.id]?.cancel();
+            _subscriptions.remove(newMessage.id);
+          }
+        });
+      },
+      onError: (e) {
+        debugPrint("Error sending batch: $e");
+      },
+      onDone: () {
+        if (!mounted) return;
+        setState(() {
+          // Ensure marked complete if stream finishes
+          if (newMessage.currentSent < newMessage.totalToSend) {
+            // Maybe some failed?
+            // For now, let's assume done means done.
+          }
+          newMessage.isCompleted = true;
+          _subscriptions.remove(newMessage.id);
+        });
+      },
+    );
   }
 
   void _toggleStopButton(int index) {
@@ -137,9 +180,9 @@ class _SendScreenState extends State<SendScreen> {
                   final msg = _messages[index];
                   msg.isCanceled = true;
                   msg.isStopButtonVisible = false;
-                  // Cancel the timer if active
-                  _timers[msg.id]?.cancel();
-                  _timers.remove(msg.id);
+                  // Cancel the subscription if active
+                  _subscriptions[msg.id]?.cancel();
+                  _subscriptions.remove(msg.id);
                 });
                 Navigator.of(context).pop();
               },
@@ -182,6 +225,9 @@ class _SendScreenState extends State<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure contacts are loaded
+    ref.watch(contactsProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -201,45 +247,6 @@ class _SendScreenState extends State<SendScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- MOCK DATA START: VIP SCALE CHIP ---
-              if (_showVipChip)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'VIP SCALE',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () => setState(() => _showVipChip = false),
-                          child: Icon(
-                            Icons.close,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // --- MOCK DATA END ---
               Row(
                 children: [
                   Expanded(

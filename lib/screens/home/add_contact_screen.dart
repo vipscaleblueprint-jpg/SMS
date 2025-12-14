@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import '../models/contact.dart';
-import '../models/tag.dart';
-import '../providers/contacts_provider.dart';
-import '../providers/tags_provider.dart';
+import '../../models/contact.dart';
+import '../../models/tag.dart';
+import '../../providers/contacts_provider.dart';
+import '../../providers/tags_provider.dart';
 
 class AddContactScreen extends ConsumerStatefulWidget {
   const AddContactScreen({super.key});

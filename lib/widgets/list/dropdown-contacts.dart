@@ -13,6 +13,9 @@ class DropdownContacts extends ConsumerStatefulWidget {
   final Function(Contact) onContactSelected;
   final Function(Tag) onTagSelected;
 
+  final String hintText;
+  final bool showContacts;
+
   const DropdownContacts({
     super.key,
     required this.controller,
@@ -21,6 +24,8 @@ class DropdownContacts extends ConsumerStatefulWidget {
     required this.selectedTagIds,
     required this.onContactSelected,
     required this.onTagSelected,
+    this.hintText = 'Recipient',
+    this.showContacts = true,
   });
 
   @override
@@ -98,6 +103,7 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
               searchText: widget.controller.text,
               selectedContactIds: widget.selectedContactIds,
               selectedTagIds: widget.selectedTagIds,
+              showContacts: widget.showContacts,
               onContactSelected: (contact) {
                 widget.onContactSelected(contact);
                 _dropdownOverlay?.markNeedsBuild();
@@ -105,6 +111,30 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
               onTagSelected: (tag) {
                 widget.onTagSelected(tag);
                 _dropdownOverlay?.markNeedsBuild();
+              },
+              onZeroContactsTag: (tag) {
+                _removeDropdown();
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    builder: (context) => Material(
+                      type: MaterialType.transparency,
+                      elevation: 24,
+                      child: AlertDialog(
+                        title: const Text('No Contacts'),
+                        content: Text(
+                          'The tag "${tag.name}" has no contacts associated with it.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
               },
             ),
           ),
@@ -137,6 +167,54 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
         .where((t) => widget.selectedTagIds.contains(t.id))
         .toList();
 
+    // Generate chips list
+    final List<Widget> chips = [
+      ...selectedTags.map(
+        (tag) => Chip(
+          label: Text(
+            tag.name,
+            style: const TextStyle(color: Color(0xFFFBB03B)),
+          ),
+          backgroundColor: Colors.transparent,
+          deleteIcon: const Icon(
+            Icons.close,
+            size: 18,
+            color: Color(0xFFFBB03B),
+          ),
+          onDeleted: () => widget.onTagSelected(tag),
+          shape: const StadiumBorder(
+            side: BorderSide(color: Color(0xFFFBB03B)),
+          ),
+          visualDensity: VisualDensity.compact,
+        ),
+      ),
+      if (widget.showContacts)
+        ...selectedContacts.map(
+          (contact) => Chip(
+            avatar: CircleAvatar(
+              backgroundColor: const Color(0xFFFBB03B),
+              child: Text(
+                contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            label: Text(contact.name),
+            backgroundColor: Colors.grey.shade200,
+            deleteIcon: const Icon(Icons.close, size: 18),
+            onDeleted: () => widget.onContactSelected(contact),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            side: BorderSide.none,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+    ];
+
     return CompositedTransformTarget(
       link: _layerLink,
       child: TapRegion(
@@ -147,98 +225,54 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
             widget.focusNode.unfocus();
           }
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // Selected Items Chips
-            if (selectedContacts.isNotEmpty || selectedTags.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Wrap(
-                  spacing: 8.0,
-                  runSpacing: 4.0,
-                  children: [
-                    ...selectedTags.map(
-                      (tag) => Chip(
-                        label: Text(
-                          tag.name,
-                          style: const TextStyle(color: Color(0xFFFBB03B)),
-                        ),
-                        backgroundColor: Colors.transparent,
-                        deleteIcon: const Icon(
-                          Icons.close,
-                          size: 18,
-                          color: Color(0xFFFBB03B),
-                        ),
-                        onDeleted: () => widget.onTagSelected(tag),
-                        shape: const StadiumBorder(
-                          side: BorderSide(color: Color(0xFFFBB03B)),
-                        ),
-                      ),
-                    ),
-                    ...selectedContacts.map(
-                      (contact) => Chip(
-                        avatar: CircleAvatar(
-                          backgroundColor: const Color(0xFFFBB03B),
-                          child: Text(
-                            contact.name.isNotEmpty
-                                ? contact.name[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+            Expanded(
+              child: TextField(
+                controller: widget.controller,
+                focusNode: widget.focusNode,
+                onTap: _showDropdown,
+                maxLines: null, // Allow wrapping
+                decoration: InputDecoration(
+                  prefixIcon: chips.isNotEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: Wrap(
+                            spacing: 8.0,
+                            runSpacing: 4.0,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: chips,
                           ),
-                        ),
-                        label: Text(contact.name),
-                        backgroundColor: Colors.grey.shade200,
-                        deleteIcon: const Icon(Icons.close, size: 18),
-                        onDeleted: () => widget.onContactSelected(contact),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        side: BorderSide.none,
-                      ),
-                    ),
-                  ],
+                        )
+                      : null,
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 0,
+                    minHeight: 0,
+                  ),
+                  hintText: chips.isEmpty ? widget.hintText : null,
+                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 16),
+                  enabledBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  contentPadding: const EdgeInsets.only(bottom: 8),
+                  isDense: true,
                 ),
               ),
-
-            // Input Row
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    onTap: _showDropdown,
-                    decoration: const InputDecoration(
-                      hintText: 'Recipient',
-                      hintStyle: TextStyle(color: Colors.grey, fontSize: 16),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.grey),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.grey),
-                      ),
-                      contentPadding: EdgeInsets.only(bottom: 8),
-                    ),
-                  ),
+            ),
+            IconButton(
+              onPressed: _toggleDropdown,
+              icon: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE0E0E0),
+                  shape: BoxShape.circle,
                 ),
-                IconButton(
-                  onPressed: _toggleDropdown,
-                  icon: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE0E0E0),
-                      shape: BoxShape.circle,
-                    ),
-                    padding: const EdgeInsets.all(4),
-                    child: const Icon(Icons.add, color: Colors.white, size: 20),
-                  ),
-                ),
-              ],
+                padding: const EdgeInsets.all(4),
+                child: const Icon(Icons.add, color: Colors.white, size: 20),
+              ),
             ),
           ],
         ),
@@ -253,6 +287,8 @@ class _RecipientList extends ConsumerWidget {
   final Set<String> selectedTagIds;
   final Function(Contact) onContactSelected;
   final Function(Tag) onTagSelected;
+  final Function(Tag) onZeroContactsTag;
+  final bool showContacts;
 
   const _RecipientList({
     required this.searchText,
@@ -260,6 +296,8 @@ class _RecipientList extends ConsumerWidget {
     required this.selectedTagIds,
     required this.onContactSelected,
     required this.onTagSelected,
+    required this.onZeroContactsTag,
+    this.showContacts = true,
   });
 
   @override
@@ -310,11 +348,11 @@ class _RecipientList extends ConsumerWidget {
                   ),
                 ),
               ),
-              ...filteredTags.map((tag) => _buildTagItem(tag)),
+              ...filteredTags.map((tag) => _buildTagItem(context, tag, ref)),
             ],
 
             // Contacts Section
-            if (filteredContacts.isNotEmpty) ...[
+            if (showContacts && filteredContacts.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -334,7 +372,8 @@ class _RecipientList extends ConsumerWidget {
             ],
 
             // No results
-            if (filteredTags.isEmpty && filteredContacts.isEmpty)
+            if (filteredTags.isEmpty &&
+                (showContacts ? filteredContacts.isEmpty : true))
               const Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Text(
@@ -349,11 +388,21 @@ class _RecipientList extends ConsumerWidget {
     );
   }
 
-  Widget _buildTagItem(Tag tag) {
+  Widget _buildTagItem(BuildContext context, Tag tag, WidgetRef ref) {
     final isSelected = selectedTagIds.contains(tag.id);
+    final allContacts = ref.read(contactsProvider);
+    final tagContactCount = allContacts
+        .where((c) => c.tags.any((t) => t.id == tag.id))
+        .length;
 
     return InkWell(
-      onTap: () => onTagSelected(tag),
+      onTap: () {
+        if (tagContactCount == 0 && !isSelected) {
+          onZeroContactsTag(tag);
+        } else {
+          onTagSelected(tag);
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -369,13 +418,26 @@ class _RecipientList extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                tag.name,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected ? const Color(0xFFFBB03B) : Colors.black,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tag.name,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: isSelected
+                          ? const Color(0xFFFBB03B)
+                          : Colors.black,
+                    ),
+                  ),
+                  Text(
+                    '$tagContactCount contacts',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
               ),
             ),
             if (isSelected)

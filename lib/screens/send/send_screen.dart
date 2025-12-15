@@ -43,10 +43,92 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
     final text = _messageController.text;
     final manualRecipient = _recipientController.text.trim();
+    final sendState = ref.read(sendMessageProvider);
 
+    // Validation
+    if (text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a message.')));
+      return;
+    }
+
+    if (sendState.selectedContactIds.isEmpty &&
+        sendState.selectedTagIds.isEmpty &&
+        manualRecipient.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No recipients selected.')));
+      return;
+    }
+
+    // Show Dialog
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Send Message'),
+          content: const Text('When would you like to send this message?'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                // Pick Date & Time
+                DateTime? pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (pickedDate != null && mounted) {
+                  TimeOfDay? pickedTime = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                  );
+                  if (pickedTime != null && mounted) {
+                    final scheduledTime = DateTime(
+                      pickedDate.year,
+                      pickedDate.month,
+                      pickedDate.day,
+                      pickedTime.hour,
+                      pickedTime.minute,
+                    );
+                    _executeSend(
+                      text,
+                      manualRecipient,
+                      instant: false,
+                      scheduledTime: scheduledTime,
+                    );
+                  }
+                }
+              },
+              child: const Text('Schedule'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _executeSend(text, manualRecipient, instant: true);
+              },
+              child: const Text('Instant'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _executeSend(
+    String text,
+    String manualRecipient, {
+    bool instant = true,
+    DateTime? scheduledTime,
+  }) async {
+    final notifier = ref.read(sendMessageProvider.notifier);
     await notifier.sendBatch(
       text: text,
       manualRecipient: manualRecipient,
+      instant: instant,
+      scheduledTime: scheduledTime,
       onError: (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
@@ -64,7 +146,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     _messageController.clear();
     notifier.clearRecipients();
     FocusScope.of(context).unfocus();
-    // Use setState only if strictly needed for local UI unrelated to provider, but provider updates will rebuild
   }
 
   void _toggleStopButton(String id) {

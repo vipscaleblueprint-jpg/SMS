@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../models/sms.dart';
+import '../../providers/sms_provider.dart';
 
-class AddSmsScreen extends StatefulWidget {
+class AddSmsScreen extends ConsumerStatefulWidget {
   final String eventTitle;
+  final int? eventId;
 
-  const AddSmsScreen({super.key, required this.eventTitle});
+  const AddSmsScreen({super.key, required this.eventTitle, this.eventId});
 
   @override
-  State<AddSmsScreen> createState() => _AddSmsScreenState();
+  ConsumerState<AddSmsScreen> createState() => _AddSmsScreenState();
 }
 
-class _AddSmsScreenState extends State<AddSmsScreen> {
+class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
   final TextEditingController _bodyController = TextEditingController(
     text:
         "Subject: Thanks, your spot is saved!\n\n{{first_name}}\n\nThanks for registering for [your webinar name]!\nHere are the details of when we're starting:\nTime: {{ event_time | date: \"%B %d, %Y %I:%M%p (%Z)\" }}\n\nThe webinar link will be emailed to you on the day of the event :)\n\nHere's what I'll be covering in the webinar:\n[insert a numbered list or bullet points of the topics you'll be talking about in the live stream]\n\nTalk soon,\nYour Name",
@@ -24,6 +29,55 @@ class _AddSmsScreenState extends State<AddSmsScreen> {
     'At the time of event',
     'After the event',
   ];
+
+  DateTime? _selectedDateTime;
+
+  Future<void> _pickDateTime() async {
+    final DateTime? date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateTime ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2101),
+    );
+
+    if (date != null && mounted) {
+      final TimeOfDay? time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(
+          _selectedDateTime ?? DateTime.now(),
+        ),
+      );
+
+      if (time != null) {
+        setState(() {
+          _selectedDateTime = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            time.hour,
+            time.minute,
+          );
+        });
+      }
+    }
+  }
+
+  Future<void> _saveSms() async {
+    final sms = Sms(
+      message: _bodyController.text,
+      event_id: widget.eventId,
+      isSent: false,
+      contact_id: null,
+      phone_number: null,
+      sender_number: null,
+      schedule_time: _selectedDateTime,
+    );
+
+    await ref.read(smsProvider.notifier).addSms(sms);
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,9 +95,7 @@ class _AddSmsScreenState extends State<AddSmsScreen> {
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
+                onPressed: _saveSms,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFBB03B),
                   foregroundColor: Colors.white,
@@ -73,18 +125,6 @@ class _AddSmsScreenState extends State<AddSmsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Text(
-                      widget.eventTitle,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
                   // When Section
                   const Text(
                     'When',
@@ -186,29 +226,31 @@ class _AddSmsScreenState extends State<AddSmsScreen> {
                       _selectedTimeOrientation == 'After the event')
                     Padding(
                       padding: const EdgeInsets.only(bottom: 24.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: TextField(
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            hintText: 'YYYY-MM-DD 9:00 AM',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14,
-                            ),
-                            isDense: true,
+                      child: InkWell(
+                        onTap: _pickDateTime,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.black87,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Text(
+                            _selectedDateTime != null
+                                ? DateFormat(
+                                    'yyyy-MM-dd hh:mm a',
+                                  ).format(_selectedDateTime!)
+                                : 'Select Date and Time',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: _selectedDateTime != null
+                                  ? Colors.black87
+                                  : Colors.grey[400],
+                            ),
                           ),
                         ),
                       ),
@@ -266,31 +308,6 @@ class _AddSmsScreenState extends State<AddSmsScreen> {
                     ),
                   ),
                 ],
-              ),
-            ),
-          ),
-          // Bottom Message Input
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            color: const Color(0xFFF5F5F5),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Message',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                fillColor: Colors.white,
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
               ),
             ),
           ),

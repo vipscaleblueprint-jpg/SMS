@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/sms_service.dart';
 import 'contacts_provider.dart';
+import '../models/contact.dart';
 
 // Message Model
 class Message {
@@ -104,22 +105,31 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
   }
 
   // Send Batch Logic
+  // Send Batch Logic
   Future<void> sendBatch({
     required String text,
     String? manualRecipient,
     required Function(String) onError,
     required VoidCallback onRecipientsEmpty,
+    bool instant = true,
+    DateTime? scheduledTime,
+    int simSlot = 1,
   }) async {
     if (text.trim().isEmpty) return;
 
-    final targetPhoneNumbers = <String>[];
+    final targetContacts = <Contact>[];
     final allContacts = ref.read(contactsProvider);
+
+    // Helper to avoid duplicates by ID
+    final addedContactIds = <String>{};
 
     // Tags
     if (state.selectedTagIds.isNotEmpty) {
       for (final contact in allContacts) {
-        if (contact.tags.any((tag) => state.selectedTagIds.contains(tag.id))) {
-          targetPhoneNumbers.add(contact.phone);
+        if (!addedContactIds.contains(contact.contact_id) &&
+            contact.tags.any((tag) => state.selectedTagIds.contains(tag.id))) {
+          targetContacts.add(contact);
+          addedContactIds.add(contact.contact_id);
         }
       }
     }
@@ -127,23 +137,32 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
     // Contacts
     if (state.selectedContactIds.isNotEmpty) {
       for (final contact in allContacts) {
-        if (state.selectedContactIds.contains(contact.contact_id)) {
-          targetPhoneNumbers.add(contact.phone);
+        if (!addedContactIds.contains(contact.contact_id) &&
+            state.selectedContactIds.contains(contact.contact_id)) {
+          targetContacts.add(contact);
+          addedContactIds.add(contact.contact_id);
         }
       }
     }
 
-    // Manual Recipient
+    // Manual Recipient (Create dummy contact)
     if (state.selectedContactIds.isEmpty &&
         state.selectedTagIds.isEmpty &&
         manualRecipient != null &&
         manualRecipient.isNotEmpty) {
-      targetPhoneNumbers.add(manualRecipient);
+      targetContacts.add(
+        Contact(
+          contact_id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
+          first_name: 'Manual',
+          last_name: 'Recipient',
+          phone: manualRecipient,
+          created: DateTime.now(),
+          tags: [],
+        ),
+      );
     }
 
-    final uniqueRecipients = targetPhoneNumbers.toSet().toList();
-
-    if (uniqueRecipients.isEmpty) {
+    if (targetContacts.isEmpty) {
       onRecipientsEmpty();
       return;
     }
@@ -153,15 +172,18 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
       text: text,
       timestamp: DateTime.now(),
       currentSent: 0,
-      totalToSend: uniqueRecipients.length,
+      totalToSend: targetContacts.length,
     );
 
     // Update state to include new message
     state = state.copyWith(messages: [...state.messages, newMessage]);
 
-    final stream = _smsService.sendBatchSms(
-      recipients: uniqueRecipients,
+    final stream = _smsService.sendBatchSmsWithDetails(
+      contacts: targetContacts,
       message: text,
+      instant: instant,
+      scheduledTime: scheduledTime,
+      simSlot: simSlot,
       delay: const Duration(milliseconds: 1000),
     );
 

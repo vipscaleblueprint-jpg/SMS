@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../models/events.dart';
+import '../../providers/events_provider.dart';
 import '../welcome_message_screen.dart';
 import 'event_actions_screen.dart';
 import '../home/settings_screen.dart';
+import '../../widgets/modals/campaign_dialog.dart';
+import '../../widgets/list/events_list.dart';
 
-class CampaignsScreen extends StatefulWidget {
+class CampaignsScreen extends ConsumerStatefulWidget {
   const CampaignsScreen({super.key});
 
   @override
-  State<CampaignsScreen> createState() => _CampaignsScreenState();
+  ConsumerState<CampaignsScreen> createState() => _CampaignsScreenState();
 }
 
-class _CampaignsScreenState extends State<CampaignsScreen> {
-  final TextEditingController _searchController = TextEditingController();
+class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
   final GlobalKey _profileKey = GlobalKey();
-
-  // Mock Data
-  final List<Map<String, String>> _events = List.generate(
-    6,
-    (index) => {'title': 'Friday Event', 'date': 'Feb 19, 2024 03:00 AM'},
-  );
 
   void _showProfileMenu() async {
     final RenderBox button =
@@ -64,168 +63,34 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
   }
 
   void _showAddEventDialog() {
-    final titleController = TextEditingController();
-    final dateController = TextEditingController();
-    final recipientsController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Create an event',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
-              // Title Field
-              const Text(
-                'Title',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: titleController,
-                decoration: InputDecoration(
-                  hintText: 'Title',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Event Starts Field
-              const Text(
-                'Event Starts',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: dateController,
-                decoration: InputDecoration(
-                  hintText: 'YYYY-MM-DD 9:00 AM',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Recipients Field
-              const Text(
-                'Recipients',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: recipientsController,
-                decoration: InputDecoration(
-                  hintText: 'Search tags',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: Colors.grey,
-                    size: 20,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey,
-                      side: BorderSide(color: Colors.grey.shade300),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 12,
-                      ),
-                    ),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (titleController.text.isNotEmpty &&
-                          dateController.text.isNotEmpty) {
-                        setState(() {
-                          _events.insert(0, {
-                            'title': titleController.text,
-                            'date': dateController.text,
-                          });
-                        });
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFBB03B),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 12,
-                      ),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+      builder: (context) => CampaignDialog(
+        onSave: (title, dateString, recipients) {
+          // Parse date string back to DateTime if needed, or assume CampaignDialog returns formatted string
+          // CampaignDialog returns formatted string currently. We need to parse it or change CampaignDialog to return DateTime.
+          // For now, let's try to parse the format "MMM dd, yyyy hh:mm a"
+
+          DateTime date;
+          try {
+            date = DateFormat("MMM dd, yyyy hh:mm a").parse(dateString);
+          } catch (e) {
+            date = DateTime.now();
+          }
+
+          final newEvent = Event(
+            name: title,
+            date: date,
+            status: EventStatus.draft,
+            recipients: recipients,
+          );
+          ref.read(eventsProvider.notifier).addEvent(newEvent);
+        },
       ),
     );
   }
 
-  void _showDeleteEventDialog(int index, String title) {
+  void _showDeleteEventDialog(Event event) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -260,7 +125,7 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                       text: 'Are you sure you want to delete the ',
                     ),
                     TextSpan(
-                      text: '$title ',
+                      text: '${event.name} ',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const TextSpan(text: 'Event?\n\n'),
@@ -293,9 +158,11 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () {
-                      setState(() {
-                        _events.removeAt(index);
-                      });
+                      if (event.id != null) {
+                        ref
+                            .read(eventsProvider.notifier)
+                            .deleteEvent(event.id!);
+                      }
                       Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
@@ -324,8 +191,36 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
     );
   }
 
+  void _showEditEventDialog(Event event) {
+    showDialog(
+      context: context,
+      builder: (context) => CampaignDialog(
+        event: event,
+        onSave: (title, dateString, recipients) {
+          DateTime date;
+          try {
+            date = DateFormat("MMM dd, yyyy hh:mm a").parse(dateString);
+          } catch (e) {
+            date = DateTime.now();
+          }
+
+          final updatedEvent = Event(
+            id: event.id,
+            name: title,
+            date: date,
+            status: event.status, // Preserve status
+            recipients: recipients,
+          );
+          ref.read(eventsProvider.notifier).updateEvent(updatedEvent);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final events = ref.watch(eventsProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -466,156 +361,20 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // "All" Tab
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'All',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Color(
-                              0xFFFBB03B,
-                            ), // Yellow underline
-                            decorationThickness: 2,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Search Bar
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search events',
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: Colors.grey,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 0,
-                          horizontal: 16,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Header Row
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Title',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
+                    EventsList(
+                      events: events,
+                      onDelete: _showDeleteEventDialog,
+                      onEdit: _showEditEventDialog,
+                      onTap: (event) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => EventActionsScreen(
+                              eventId: event.id!,
+                              eventTitle: event.name,
+                              eventDate: DateFormat(
+                                'MMM dd, yyyy hh:mm a',
+                              ).format(event.date),
                             ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(
-                              right: 48.0,
-                            ), // Space for delete icon alignment
-                            child: Text(
-                              'Date',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-
-                    // Event List
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _events.length,
-                      itemBuilder: (context, index) {
-                        final event = _events[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 2, // Width weight for Title
-                                child: InkWell(
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            EventActionsScreen(
-                                              eventTitle: event['title']!,
-                                              eventDate: event['date']!,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                  child: Text(
-                                    event['title']!,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 3, // Width weight for Date
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    InkWell(
-                                      onTap: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                EventActionsScreen(
-                                                  eventTitle: event['title']!,
-                                                  eventDate: event['date']!,
-                                                ),
-                                          ),
-                                        );
-                                      },
-                                      child: Text(
-                                        event['date']!,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () => _showDeleteEventDialog(
-                                        index,
-                                        event['title']!,
-                                      ),
-                                      child: Icon(
-                                        Icons.delete_outline,
-                                        size: 18,
-                                        color: Colors.grey[400],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ),
                         );
                       },

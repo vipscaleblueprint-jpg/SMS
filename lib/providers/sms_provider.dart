@@ -1,20 +1,63 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:another_telephony/telephony.dart' hide SmsStatus;
 import '../models/sms.dart';
 import '../utils/db/sms_db_helper.dart';
+import '../services/sms_service.dart';
+import 'contacts_provider.dart';
 
-final smsProvider = StateNotifierProvider<SmsNotifier, List<Sms>>((ref) {
-  return SmsNotifier();
-});
+final smsProvider = NotifierProvider<SmsNotifier, List<Sms>>(SmsNotifier.new);
 
-class SmsNotifier extends StateNotifier<List<Sms>> {
-  SmsNotifier() : super([]) {
+class SmsNotifier extends Notifier<List<Sms>> {
+  @override
+  List<Sms> build() {
     loadSms();
+    return [];
   }
 
   Future<void> loadSms() async {
-    final smsList = await SmsDbHelper().getSmsList();
-    state = smsList;
+    final dbSmsList = await SmsDbHelper().getSmsList();
+
+    // Fetch system SMS
+    List<Sms> systemSmsList = [];
+    try {
+      final systemMessages = await SmsService().getSentMessages();
+      // ref is available in Notifier
+      // Use read here. Note: If contacts aren't loaded yet, this might be empty.
+      final contacts = ref.read(contactsProvider);
+
+      systemSmsList = systemMessages.map((msg) {
+        final phoneNumber = msg.address ?? '';
+        // Basic normalization for matching
+        final normalizedPhone = phoneNumber.replaceAll(RegExp(r'\s+'), '');
+
+        // Find matching contact
+        final contact = contacts.cast<dynamic>().firstWhere(
+          (c) => c.phone.replaceAll(RegExp(r'\s+'), '') == normalizedPhone,
+          orElse: () => null,
+        );
+
+        return Sms(
+          // id is null for system messages not in our DB
+          message: msg.body ?? '',
+          phone_number: phoneNumber,
+          contact_id: contact?.contact_id,
+          status: SmsStatus.sent,
+          sentTimeStamps: DateTime.fromMillisecondsSinceEpoch(msg.date ?? 0),
+        );
+      }).toList();
+    } catch (e) {
+      print('Error loading system SMS: $e');
+    }
+
+    // Merge and sort
+    final allSms = [...dbSmsList, ...systemSmsList];
+    allSms.sort((a, b) {
+      final tA = a.sentTimeStamps ?? a.schedule_time ?? DateTime(0);
+      final tB = b.sentTimeStamps ?? b.schedule_time ?? DateTime(0);
+      return tB.compareTo(tA);
+    });
+
+    state = allSms;
   }
 
   Future<void> addSms(Sms sms) async {

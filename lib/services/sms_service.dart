@@ -1,7 +1,9 @@
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:another_telephony/telephony.dart';
+import 'package:another_telephony/telephony.dart' hide SmsStatus;
 import '../models/contact.dart';
+import '../models/sms.dart';
+import '../utils/db/sms_db_helper.dart';
 
 @pragma('vm:entry-point')
 void sendScheduledSms(int id) async {
@@ -39,11 +41,40 @@ class SmsService {
     );
   }
 
+  Future<List<SmsMessage>> getSentMessages() async {
+    return await _telephony.getSentSms(
+      columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
+      sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
+    );
+  }
+
   Future<void> sendSms({
     required String address,
     required String message,
+    String? contactId,
   }) async {
-    await _telephony.sendSms(to: address, message: message);
+    SmsStatus status = SmsStatus.pending;
+    try {
+      await _telephony.sendSms(to: address, message: message);
+      status = SmsStatus.sent;
+    } catch (e) {
+      status = SmsStatus.failed;
+      rethrow;
+    } finally {
+      // Save to database regardless of outcome
+      try {
+        final sms = Sms(
+          contact_id: contactId,
+          phone_number: address,
+          message: message,
+          status: status,
+          sentTimeStamps: status == SmsStatus.sent ? DateTime.now() : null,
+        );
+        await SmsDbHelper().insertSms(sms);
+      } catch (dbError) {
+        print('Error saving SMS to database: $dbError');
+      }
+    }
   }
 
   /// Sends a batch of SMS messages to multiple [recipients].
@@ -113,12 +144,6 @@ class SmsService {
 
   /// Sends an SMS with options for scheduling and SIM selection.
   ///
-  /// [contact] is the phone number.
-  /// [instant] if true, sends immediately.
-  /// [scheduledTime] if provided and [instant] is false, schedules the message (implementation depends on scheduling mechanism).
-  /// [simSlot] 1 for SIM 1, 2 for SIM 2. Note: SIM selection depends on platform support.
-  /// Sends an SMS with options for scheduling and SIM selection.
-  ///
   /// [contact] is the Contact object containing details for variable substitution.
   /// [instant] if true, sends immediately.
   /// [scheduledTime] if provided and [instant] is false, schedules the message.
@@ -139,16 +164,28 @@ class SmsService {
 
     if (instant) {
       if (simSlot == 1) {
-        await sendSms(address: contact.phone, message: finalMessage);
+        await sendSms(
+          address: contact.phone,
+          message: finalMessage,
+          contactId: contact.contact_id,
+        );
       } else if (simSlot == 2) {
-        await sendSms(address: contact.phone, message: finalMessage);
+        await sendSms(
+          address: contact.phone,
+          message: finalMessage,
+          contactId: contact.contact_id,
+        );
       }
     } else if (scheduledTime != null) {
       try {
         final delay = scheduledTime.difference(DateTime.now());
         if (delay.isNegative) {
           print('Scheduled time is in the past. Sending immediately.');
-          await sendSms(address: contact.phone, message: finalMessage);
+          await sendSms(
+            address: contact.phone,
+            message: finalMessage,
+            contactId: contact.contact_id,
+          );
           return;
         }
 
@@ -164,15 +201,41 @@ class SmsService {
           delay,
           id,
           sendScheduledSms,
-          exact: true,
+          exact: false,
           wakeup: true,
         );
+
+        // Save to Database as Pending
+        try {
+          final sms = Sms(
+            contact_id: contact.contact_id,
+            phone_number: contact.phone,
+            message: finalMessage,
+            status: SmsStatus.pending,
+            schedule_time: scheduledTime,
+          );
+          await SmsDbHelper().insertSms(sms);
+        } catch (dbError) {
+          print('Error saving scheduled SMS to database: $dbError');
+        }
 
         print(
           '✅ SMS scheduled for ${contact.name} (${contact.phone}) at $scheduledTime (in ${delay.inMinutes} mins) [Alarm ID: $id]: "$finalMessage"',
         );
       } catch (e) {
         print('❌ Failed to schedule SMS: $e');
+        try {
+          final sms = Sms(
+            contact_id: contact.contact_id,
+            phone_number: contact.phone,
+            message: finalMessage,
+            status: SmsStatus.failed,
+            schedule_time: scheduledTime,
+          );
+          await SmsDbHelper().insertSms(sms);
+        } catch (dbError) {
+          print('Error saving failed scheduled SMS to database: $dbError');
+        }
         rethrow;
       }
     } else {

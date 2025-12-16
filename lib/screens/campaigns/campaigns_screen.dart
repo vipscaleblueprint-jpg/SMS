@@ -219,8 +219,6 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final events = ref.watch(eventsProvider);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -362,7 +360,6 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                     const SizedBox(height: 24),
 
                     EventsList(
-                      events: events,
                       onDelete: _showDeleteEventDialog,
                       onEdit: _showEditEventDialog,
                       onTap: (event) {

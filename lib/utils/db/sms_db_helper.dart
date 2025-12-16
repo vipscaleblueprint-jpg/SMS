@@ -22,7 +22,7 @@ class SmsDbHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -36,7 +36,7 @@ class SmsDbHelper {
         contact_id TEXT,
         phone_number TEXT,
         sender_number TEXT,
-        isSent INTEGER NOT NULL,
+        status TEXT NOT NULL, 
         sentTimeStamps TEXT,
         schedule_time TEXT,
         event_id INTEGER
@@ -45,17 +45,8 @@ class SmsDbHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Quick and dirty migration: recreate table or alter.
-      // Since it's development, let's just alter columns to be nullable is hard in sqlite limited alter table support.
-      // Easiest is to drop and recreate for dev, or copy data.
-      // Given user context is dev, I'll drop and recreate or just ignore if they don't care about old data.
-      // But I need to preserve data ideally.
-      // SQLite doesn't support ALTER COLUMN to remove Not Null.
-      // I'll just create a new table and move data if I wanted to be perfect.
-      // For now, I'll assuming recreating is acceptable or I'll just keep version 1 if I believe it wasn't created yet or I can force re-creation.
-      // Actually, I'll just change the onCreate and assume user will reinstall or clear data if it crashes.
-      // But I'll bump version and perform a drop/create for simplicity.
+    if (oldVersion < 3) {
+      // Re-create table for version 3 (status column change)
       await db.execute('DROP TABLE IF EXISTS sms');
       await _onCreate(db, newVersion);
     }

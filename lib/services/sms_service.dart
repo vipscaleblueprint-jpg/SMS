@@ -1,5 +1,29 @@
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_telephony/telephony.dart';
 import '../models/contact.dart';
+
+@pragma('vm:entry-point')
+void sendScheduledSms(int id) async {
+  final prefs = await SharedPreferences.getInstance();
+  final String? address = prefs.getString('sms_${id}_address');
+  final String? message = prefs.getString('sms_${id}_message');
+
+  if (address != null && message != null) {
+    final Telephony telephony = Telephony.instance;
+    try {
+      await telephony.sendSms(to: address, message: message);
+      print('Background SMS sent to $address (Alarm ID: $id)');
+      // Cleanup
+      await prefs.remove('sms_${id}_address');
+      await prefs.remove('sms_${id}_message');
+    } catch (e) {
+      print('Failed to send background SMS: $e');
+    }
+  } else {
+    print('No SMS data found for Alarm ID: $id');
+  }
+}
 
 class SmsService {
   final Telephony _telephony = Telephony.instance;
@@ -119,10 +143,40 @@ class SmsService {
       } else if (simSlot == 2) {
         await sendSms(address: contact.phone, message: finalMessage);
       }
+    } else if (scheduledTime != null) {
+      try {
+        final delay = scheduledTime.difference(DateTime.now());
+        if (delay.isNegative) {
+          print('Scheduled time is in the past. Sending immediately.');
+          await sendSms(address: contact.phone, message: finalMessage);
+          return;
+        }
+
+        // Generate a unique ID (within 32-bit int range)
+        final int id = DateTime.now().millisecondsSinceEpoch % 0x7FFFFFFF;
+
+        // Save data to SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('sms_${id}_address', contact.phone);
+        await prefs.setString('sms_${id}_message', finalMessage);
+
+        await AndroidAlarmManager.oneShot(
+          delay,
+          id,
+          sendScheduledSms,
+          exact: true,
+          wakeup: true,
+        );
+
+        print(
+          '✅ SMS scheduled for ${contact.name} (${contact.phone}) at $scheduledTime (in ${delay.inMinutes} mins) [Alarm ID: $id]: "$finalMessage"',
+        );
+      } catch (e) {
+        print('❌ Failed to schedule SMS: $e');
+        rethrow;
+      }
     } else {
-      print(
-        'SMS scheduled for ${contact.name} (${contact.phone}) at $scheduledTime on SIM $simSlot: "$finalMessage"',
-      );
+      print('⚠️ No scheduled time provided for non‑instant send');
     }
   }
 }

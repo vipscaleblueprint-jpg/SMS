@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../widgets/list/dropdown-contacts.dart';
 import '../../providers/send_message_provider.dart';
 
@@ -62,29 +63,36 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       return;
     }
 
-    // Show Dialog
+    // Show Dialog for Schedule or Instant
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Send Message'),
           content: const Text('When would you like to send this message?'),
           actions: [
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop();
-                // Pick Date & Time
+                // Save the main context before closing dialog
+                final mainContext = context;
+                Navigator.of(dialogContext).pop();
+
+                // Use the saved context for pickers
+                if (!mounted) return;
+
                 DateTime? pickedDate = await showDatePicker(
-                  context: context,
+                  context: mainContext,
                   initialDate: DateTime.now(),
                   firstDate: DateTime.now(),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
                 );
+
                 if (pickedDate != null && mounted) {
                   TimeOfDay? pickedTime = await showTimePicker(
-                    context: context,
+                    context: mainContext,
                     initialTime: TimeOfDay.now(),
                   );
+
                   if (pickedTime != null && mounted) {
                     final scheduledTime = DateTime(
                       pickedDate.year,
@@ -106,7 +114,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
                 _executeSend(text, manualRecipient, instant: true);
               },
               child: const Text('Instant'),
@@ -308,13 +316,38 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    Text(
-                                      timeStr,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade500,
+                                    // Show scheduled time if available, otherwise show sent time
+                                    if (msg.scheduledTime != null)
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Scheduled for: ${DateFormat('MMM dd, yyyy hh:mm a').format(msg.scheduledTime!)}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.orange.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Created: $timeStr',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      Text(
+                                        timeStr,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade500,
+                                        ),
                                       ),
-                                    ),
                                   ],
                                 ),
                               ),

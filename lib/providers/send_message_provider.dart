@@ -10,6 +10,7 @@ class Message {
   final String id;
   final String text;
   final DateTime timestamp;
+  final DateTime? scheduledTime; // When the message is scheduled to send
   int currentSent;
   final int totalToSend;
   bool isStopButtonVisible;
@@ -20,6 +21,7 @@ class Message {
     required this.id,
     required this.text,
     required this.timestamp,
+    this.scheduledTime,
     this.currentSent = 0,
     this.totalToSend = 0,
     this.isStopButtonVisible = false,
@@ -171,6 +173,7 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
       id: DateTime.now().toString(),
       text: text,
       timestamp: DateTime.now(),
+      scheduledTime: scheduledTime,
       currentSent: 0,
       totalToSend: targetContacts.length,
     );

@@ -32,4 +32,12 @@ class EventsNotifier extends StateNotifier<List<Event>> {
     await EventDbHelper().deleteEvent(id);
     await loadEvents();
   }
+
+  Future<void> deleteEvents(List<int> ids) async {
+    final db = EventDbHelper();
+    for (final id in ids) {
+      await db.deleteEvent(id);
+    }
+    await loadEvents();
+  }
 }

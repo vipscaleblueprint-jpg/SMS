@@ -29,15 +29,8 @@ class _EditContactDialogState extends ConsumerState<EditContactDialog> {
     );
     _lastNameController = TextEditingController(text: widget.contact.last_name);
 
-    // Parse phone: strip +63 and leading 0
-    String phone = widget.contact.phone;
-    if (phone.startsWith('+63')) {
-      phone = phone.substring(3);
-    }
-    if (phone.startsWith('0')) {
-      phone = phone.substring(1);
-    }
-    _phoneController = TextEditingController(text: phone);
+    // Use phone number as-is without stripping country code
+    _phoneController = TextEditingController(text: widget.contact.phone);
 
     _selectedTags = List.from(widget.contact.tags);
   }
@@ -51,18 +44,8 @@ class _EditContactDialogState extends ConsumerState<EditContactDialog> {
   }
 
   void _saveContact() {
-    // Reconstruct phone number
+    // Use phone number as entered (no forced +63 prefix)
     String phoneInput = _phoneController.text.trim();
-    if (phoneInput.isNotEmpty) {
-      // Ensure we don't double add if user typed it
-      if (!phoneInput.startsWith('+63')) {
-        // If user typed '09...', remove '0'
-        if (phoneInput.startsWith('0')) {
-          phoneInput = phoneInput.substring(1);
-        }
-        phoneInput = '+63$phoneInput';
-      }
-    }
 
     final updatedContact = widget.contact.copyWith(
       first_name: _firstNameController.text.trim(),
@@ -232,42 +215,18 @@ class _EditContactDialogState extends ConsumerState<EditContactDialog> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: const Text(
-                        '🇵🇭 +63',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _phoneController,
-                        style: const TextStyle(
-                          color: Color(0xFFFBB03B), // Yellow text
-                          fontWeight: FontWeight.normal,
-                        ),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: '9xxxxxxxxx',
-                        ),
-                        keyboardType: TextInputType.phone,
-                      ),
-                    ),
-                  ],
+                child: TextField(
+                  controller: _phoneController,
+                  style: const TextStyle(
+                    color: Color(0xFFFBB03B), // Yellow text
+                    fontWeight: FontWeight.normal,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText:
+                        'Phone number with country code (e.g., +15551234567)',
+                  ),
+                  keyboardType: TextInputType.phone,
                 ),
               ),
 

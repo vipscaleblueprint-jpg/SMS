@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../send/add_sms_screen.dart';
 import '../../providers/sms_provider.dart';
+import '../../providers/events_provider.dart';
 import '../../models/sms.dart';
+import '../../models/events.dart';
 
 class EventActionsScreen extends ConsumerStatefulWidget {
   final int eventId;
@@ -23,6 +25,62 @@ class EventActionsScreen extends ConsumerStatefulWidget {
 
 class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
   bool _isActionsEnabled = true;
+  Event? _currentEvent;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEventStatus();
+  }
+
+  Future<void> _loadEventStatus() async {
+    // Find the current event from the events list
+    final events = ref.read(eventsProvider);
+    final event = events.firstWhere(
+      (e) => e.id == widget.eventId,
+      orElse: () => Event(
+        id: widget.eventId,
+        name: widget.eventTitle,
+        date: DateTime.now(),
+        status: EventStatus.draft,
+      ),
+    );
+    setState(() {
+      _currentEvent = event;
+      _isActionsEnabled = event.status == EventStatus.activate;
+    });
+  }
+
+  Future<void> _toggleEventStatus(bool value) async {
+    if (_currentEvent == null) return;
+
+    // Update event status
+    final updatedEvent = Event(
+      id: _currentEvent!.id,
+      name: _currentEvent!.name,
+      date: _currentEvent!.date,
+      status: value ? EventStatus.activate : EventStatus.draft,
+      recipients: _currentEvent!.recipients,
+    );
+
+    await ref.read(eventsProvider.notifier).updateEvent(updatedEvent);
+
+    // Update all SMS statuses for this event
+    await ref
+        .read(smsProvider.notifier)
+        .updateEventSmsStatuses(
+          widget.eventId,
+          value, // isPublished
+        );
+
+    // Refresh SMS list
+    ref.invalidate(eventSmsProvider(widget.eventId));
+
+    setState(() {
+      _currentEvent = updatedEvent;
+      _isActionsEnabled = value;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,8 +155,14 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Event Actions Header with Toggle
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
+                Container(
+                  color: const Color(0xFFF1F1F1),
+                  padding: const EdgeInsets.only(
+                    left: 16.0,
+                    top: 16.0,
+                    bottom: 16.0,
+                    right: 16.0,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -112,11 +176,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                       ),
                       Switch(
                         value: _isActionsEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            _isActionsEnabled = value;
-                          });
-                        },
+                        onChanged: _toggleEventStatus,
                         activeColor: Colors.white,
                         activeTrackColor: const Color(0xFFFBB03B),
                       ),
@@ -282,46 +342,82 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
     );
   }
 
-  // State for selections
-  final Set<int> _selectedIds = {};
-
   Widget _buildSmsItem(Sms sms) {
-    // Format date if available
+    // Format date directly from sms data
     final dateStr = sms.schedule_time != null
         ? DateFormat('MMMM dd, yyyy hh:mm a').format(sms.schedule_time!)
         : (sms.sentTimeStamps != null
               ? DateFormat('MMMM dd, yyyy hh:mm a').format(sms.sentTimeStamps!)
               : 'Draft');
 
-    final isSelected = sms.id != null && _selectedIds.contains(sms.id);
+    // Determining styles based on status
+    final isDraft = sms.status == SmsStatus.draft;
+    final isSent = sms.status == SmsStatus.sent;
+
+    // Container Decoration
+    final decoration = isDraft
+        ? const BoxDecoration(
+            color: Colors.transparent,
+            border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+          )
+        : BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          );
+
+    // Margin/Padding - drafts have minimal spacing, pending/sent have card padding
+    final margin = isDraft
+        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 0)
+        : const EdgeInsets.symmetric(horizontal: 16, vertical: 8);
+
+    final padding = isDraft
+        ? const EdgeInsets.symmetric(vertical: 16, horizontal: 8)
+        : const EdgeInsets.all(16);
 
     return InkWell(
-      onTap: () {
-        if (sms.id == null) return;
-        setState(() {
-          if (_selectedIds.contains(sms.id)) {
-            _selectedIds.remove(sms.id);
-          } else {
-            _selectedIds.add(sms.id!);
-          }
-        });
+      onTap: () async {
+        // Navigate to Edit Screen (AddSmsScreen with existing SMS)
+        DateTime? parsedEventDate;
+        try {
+          parsedEventDate = DateFormat(
+            'MMM dd, yyyy hh:mm a',
+          ).parse(widget.eventDate);
+        } catch (_) {}
+
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddSmsScreen(
+              eventTitle: widget.eventTitle,
+              eventId: widget.eventId,
+              eventDate: parsedEventDate,
+              smsToEdit: sms,
+            ),
+          ),
+        );
+        if (mounted) {
+          // ignore: unused_result
+          ref.refresh(eventSmsProvider(widget.eventId));
+        }
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Colors.grey.shade300 : Colors.transparent,
-            width: 10.0,
-          ),
-        ),
+        margin: margin,
+        padding: padding,
+        decoration: decoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
@@ -331,18 +427,16 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                     style: const TextStyle(fontSize: 16, color: Colors.black87),
                   ),
                 ),
-                if (isSelected)
+                // Status Check Icon - only show for pending/sent, not draft
+                if (!isDraft)
                   Icon(
                     Icons.check_circle,
-                    color: _isActionsEnabled
-                        ? const Color(0xFFFBB03B)
-                        : Colors.grey,
+                    color: isSent ? const Color(0xFFFDB713) : Colors.grey,
                     size: 20,
                   ),
               ],
             ),
-            const SizedBox(height: 8),
-            Divider(color: Colors.grey.shade200, height: 1),
+
             const SizedBox(height: 12),
             Row(
               children: [

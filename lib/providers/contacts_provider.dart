@@ -57,6 +57,13 @@ class ContactsNotifier extends Notifier<List<Contact>> {
   Future<void> removeContact(String id) async {
     await deleteContact(id);
   }
+
+  Future<void> deleteContacts(List<String> ids) async {
+    for (final id in ids) {
+      await _db.deleteContact(id);
+    }
+    await _loadContacts();
+  }
 }
 
 final contactsProvider = NotifierProvider<ContactsNotifier, List<Contact>>(

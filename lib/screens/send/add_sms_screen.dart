@@ -8,12 +8,14 @@ class AddSmsScreen extends ConsumerStatefulWidget {
   final String eventTitle;
   final int? eventId;
   final DateTime? eventDate;
+  final Sms? smsToEdit; // Added for editing
 
   const AddSmsScreen({
     super.key,
     required this.eventTitle,
     this.eventId,
     this.eventDate,
+    this.smsToEdit,
   });
 
   @override
@@ -27,7 +29,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
   );
 
   bool _isDropdownOpen = false;
-  String _selectedTimeOrientation = '--Please Select Time Orientation--';
+  String _selectedTimeOrientation = 'Draft'; // Default to Draft
   final List<String> _timeOptions = [
     'Draft',
     'Specific Date and Time',
@@ -58,6 +60,30 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
     _relativeTimeValueController.addListener(() {
       setState(() {});
     });
+
+    if (widget.smsToEdit != null) {
+      _bodyController.text = widget.smsToEdit!.message;
+
+      // Determine orientation
+      if (widget.smsToEdit!.status == SmsStatus.draft) {
+        _selectedTimeOrientation = 'Draft';
+      } else if (widget.smsToEdit!.schedule_time != null) {
+        // Checking exact match might be tricky with microseconds, but let's try or default to specific
+        if (widget.eventDate != null &&
+            widget.smsToEdit!.schedule_time!.isAtSameMomentAs(
+              widget.eventDate!,
+            )) {
+          _selectedTimeOrientation = 'At the time of event';
+        } else {
+          // Default to Specific Date if we can't reverse engineer relative easily
+          _selectedTimeOrientation = 'Specific Date and Time';
+          _selectedDateTime = widget.smsToEdit!.schedule_time;
+        }
+      } else {
+        // Fallback
+        _selectedTimeOrientation = 'Draft';
+      }
+    }
   }
 
   @override
@@ -144,18 +170,52 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
     final finalScheduleTime = _calculatedDate;
 
     final sms = Sms(
+      id: widget.smsToEdit?.id, // Preserve ID if editing
       message: _bodyController.text,
       event_id: widget.eventId,
-      isSent: false,
-      contact_id: null,
-      phone_number: null,
-      sender_number: null,
+      status: finalScheduleTime == null ? SmsStatus.draft : SmsStatus.pending,
+      contact_id: widget.smsToEdit?.contact_id,
+      phone_number: widget.smsToEdit?.phone_number,
+      sender_number: widget.smsToEdit?.sender_number,
       schedule_time: finalScheduleTime,
     );
 
-    await ref.read(smsProvider.notifier).addSms(sms);
+    if (widget.smsToEdit != null) {
+      await ref.read(smsProvider.notifier).updateSms(sms);
+    } else {
+      await ref.read(smsProvider.notifier).addSms(sms);
+    }
+
     if (mounted) {
       Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _deleteSms() async {
+    if (widget.smsToEdit?.id == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete SMS?'),
+        content: const Text('Are you sure you want to delete this message?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await ref.read(smsProvider.notifier).deleteSms(widget.smsToEdit!.id!);
+      if (mounted) Navigator.of(context).pop();
     }
   }
 
@@ -171,6 +231,11 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          if (widget.smsToEdit != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: _deleteSms,
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
@@ -188,9 +253,9 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                     vertical: 8,
                   ),
                 ),
-                child: const Text(
-                  'Save',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                child: Text(
+                  widget.smsToEdit != null ? 'Update' : 'Save',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -240,12 +305,8 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                         children: [
                           Text(
                             _selectedTimeOrientation,
-                            style: TextStyle(
-                              color:
-                                  _selectedTimeOrientation ==
-                                      '--Please Select Time Orientation--'
-                                  ? Colors.grey[400]
-                                  : Colors.black87,
+                            style: const TextStyle(
+                              color: Colors.black87,
                               fontSize: 14,
                             ),
                           ),

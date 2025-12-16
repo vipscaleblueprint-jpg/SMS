@@ -22,7 +22,6 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
 
   List<Tag> _selectedTags = [];
   bool _isEditing = false;
-  bool _isPhoneValid = false;
 
   void _removeTag(Tag tag) {
     setState(() {
@@ -91,12 +90,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
       return;
     }
 
-    if (!_isPhoneValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid phone number')),
-      );
-      return;
-    }
+    // Removed phone validation - accept any format
 
     final contact = Contact(
       contact_id: const Uuid().v4(),
@@ -247,11 +241,6 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
               child: InternationalPhoneNumberInput(
                 onInputChanged: (PhoneNumber number) {
                   _phoneNumber = number;
-                },
-                onInputValidated: (bool value) {
-                  setState(() {
-                    _isPhoneValid = value;
-                  });
                 },
                 selectorConfig: const SelectorConfig(
                   selectorType: PhoneInputSelectorType.BOTTOM_SHEET,

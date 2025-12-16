@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/contacts_provider.dart';
 import '../../models/contact.dart';
+import '../modals/edit_contact_dialog.dart';
 
 class ContactsList extends ConsumerStatefulWidget {
   const ContactsList({super.key});
@@ -130,50 +131,60 @@ class _ContactRow extends StatelessWidget {
 
   const _ContactRow({required this.contact});
 
+  void _showEditDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => EditContactDialog(contact: contact),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-      child: Row(
-        children: [
-          // Name
-          Expanded(
-            flex: 2,
-            child: Text(
-              contact.name,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.black87,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // Number
-          Expanded(
-            flex: 2,
-            child: Text(
-              contact.phone,
-              style: TextStyle(fontSize: 15, color: Colors.grey[700]),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // Tag Count
-          Expanded(
-            flex: 1,
-            child: Text(
-              contact.tags.isEmpty ? '-' : '${contact.tags.length} Tags',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 14,
-                color: contact.tags.isEmpty
-                    ? Colors.grey[400]
-                    : const Color(0xFFFBB03B),
-                fontWeight: FontWeight.w500,
+    return InkWell(
+      onTap: () => _showEditDialog(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+        child: Row(
+          children: [
+            // Name
+            Expanded(
+              flex: 2,
+              child: Text(
+                contact.name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-        ],
+            // Number
+            Expanded(
+              flex: 2,
+              child: Text(
+                contact.phone,
+                style: TextStyle(fontSize: 15, color: Colors.grey[700]),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // Tag Count
+            Expanded(
+              flex: 1,
+              child: Text(
+                contact.tags.isEmpty ? '-' : '${contact.tags.length} Tags',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: contact.tags.isEmpty
+                      ? Colors.grey[400]
+                      : const Color(0xFFFBB03B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

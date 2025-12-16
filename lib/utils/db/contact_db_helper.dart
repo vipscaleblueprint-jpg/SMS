@@ -95,6 +95,49 @@ class ContactDbHelper {
     });
   }
 
+  Future<void> updateContact(Contact contact) async {
+    final db = await database;
+
+    await db.transaction((txn) async {
+      // 1. Update contact details
+      await txn.update(
+        'contacts',
+        {
+          'first_name': contact.first_name,
+          'last_name': contact.last_name,
+          'email': contact.email,
+          'phone': contact.phone,
+        },
+        where: 'contact_id = ?',
+        whereArgs: [contact.contact_id],
+      );
+
+      // 2. Sync tags: Remove all old associations first
+      await txn.delete(
+        'contact_tags',
+        where: 'contact_id = ?',
+        whereArgs: [contact.contact_id],
+      );
+
+      // 3. Re-add current tags
+      for (final tag in contact.tags) {
+        // Ensure tag exists in tags table
+        await txn.insert('tags', {
+          'id': tag.id,
+          'name': tag.name,
+          'color': tag.color,
+          'created': tag.created?.toIso8601String(),
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+        // Link contact <-> tag
+        await txn.insert('contact_tags', {
+          'contact_id': contact.contact_id,
+          'tag_id': tag.id,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    });
+  }
+
   // =========================
   // READ
   // =========================

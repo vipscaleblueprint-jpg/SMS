@@ -84,49 +84,49 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Event Actions Header with Toggle
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Event Actions',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Event Actions Header with Toggle
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Event Actions',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
                       ),
-                    ),
-                    Switch(
-                      value: _isActionsEnabled,
-                      onChanged: (value) {
-                        setState(() {
-                          _isActionsEnabled = value;
-                        });
-                      },
-                      activeColor: Colors.white,
-                      activeTrackColor: const Color(0xFFFBB03B),
-                    ),
-                  ],
+                      Switch(
+                        value: _isActionsEnabled,
+                        onChanged: (value) {
+                          setState(() {
+                            _isActionsEnabled = value;
+                          });
+                        },
+                        activeColor: Colors.white,
+                        activeTrackColor: const Color(0xFFFBB03B),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Divider(height: 1),
+                const Divider(height: 1),
 
-              // Action List Items
-              Expanded(
-                child: smsListAsync.when(
+                // Action List Items
+                smsListAsync.when(
                   data: (smsList) {
                     final beforeList = <Sms>[];
                     final afterList = <Sms>[];
@@ -150,12 +150,16 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                     if (smsList.isEmpty) {
                       // Even if no SMS, show Event Card
                       return ListView(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         children: [_buildEventCard()],
                       );
                     }
 
                     return ListView(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       children: [
                         ...beforeList.map((sms) => _buildSmsItem(sms)),
@@ -167,47 +171,61 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                       ],
                     );
                   },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
+                  loading: () => const Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
-              ),
 
-              const Divider(height: 1),
+                const Divider(height: 1),
 
-              // Add SMS Button
-              InkWell(
-                onTap: () {
-                  Navigator.of(context)
-                      .push(
-                        MaterialPageRoute(
-                          builder: (context) => AddSmsScreen(
-                            eventTitle: widget.eventTitle,
-                            eventId: widget.eventId,
+                // Add SMS Button
+                InkWell(
+                  onTap: () {
+                    DateTime? parsedEventDate;
+                    try {
+                      parsedEventDate = DateFormat(
+                        'MMM dd, yyyy hh:mm a',
+                      ).parse(widget.eventDate);
+                    } catch (e) {
+                      // print or handle error if needed
+                    }
+
+                    Navigator.of(context)
+                        .push(
+                          MaterialPageRoute(
+                            builder: (context) => AddSmsScreen(
+                              eventTitle: widget.eventTitle,
+                              eventId: widget.eventId,
+                              eventDate: parsedEventDate,
+                            ),
+                          ),
+                        )
+                        .then((_) {
+                          // Refreshes handled by provider watcher usually if invalidated, but explicit refresh ensures it
+                          void _ = ref.refresh(
+                            eventSmsProvider(widget.eventId),
+                          );
+                        });
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Text(
+                          '+ Add SMS',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
                           ),
                         ),
-                      )
-                      .then((_) {
-                        // Refreshes handled by provider watcher usually if invalidated, but explicit refresh ensures it
-                        void _ = ref.refresh(eventSmsProvider(widget.eventId));
-                      });
-                },
-                child: const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Text(
-                        '+ Add SMS',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -216,76 +234,12 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
 
   Widget _buildEventCard() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white, // Or slightly different to distinguish?
-        borderRadius: BorderRadius.circular(8),
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.shade200,
-            width: 2,
-          ), // Underline style like image?
-          // actually image has borders around items
-        ),
-        // Image shows item with shadow or border?
-        // Let's use a card-like look without elevation to match the flat style
-        // but maybe a grey background for the item container?
-      ),
-      // Actually image shows items are inside the list.
-      // Let's make it look clean.
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.eventTitle,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.normal, // Regular weight for middle item?
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Divider(color: Colors.grey.shade200),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.calendar_today, size: 14, color: Colors.grey[800]),
-              const SizedBox(width: 8),
-              Text(
-                widget.eventDate,
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSmsItem(Sms sms) {
-    // Format date if available
-    final dateStr = sms.schedule_time != null
-        ? DateFormat('MMM dd, yyyy hh:mm a').format(sms.schedule_time!)
-        : (sms.sentTimeStamps != null
-              ? DateFormat('MMM dd, yyyy hh:mm a').format(sms.sentTimeStamps!)
-              : 'Draft / No Date');
-
-    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, 2),
-            blurRadius: 4,
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,33 +249,113 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  sms.message,
+                  widget.eventTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 16, color: Colors.black87),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.check_circle,
-                color: Color(0xFFFBB03B), // Yellow check
-                size: 18,
+                color: _isActionsEnabled
+                    ? const Color(0xFFFBB03B)
+                    : Colors.grey,
+                size: 20,
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Divider(color: Colors.grey.shade200),
-          const SizedBox(height: 8),
+          Divider(color: Colors.grey.shade200, height: 1),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+              Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
               const SizedBox(width: 8),
               Text(
-                dateStr,
+                widget.eventDate,
                 style: TextStyle(fontSize: 14, color: Colors.grey[500]),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  // State for selections
+  final Set<int> _selectedIds = {};
+
+  Widget _buildSmsItem(Sms sms) {
+    // Format date if available
+    final dateStr = sms.schedule_time != null
+        ? DateFormat('MMMM dd, yyyy hh:mm a').format(sms.schedule_time!)
+        : (sms.sentTimeStamps != null
+              ? DateFormat('MMMM dd, yyyy hh:mm a').format(sms.sentTimeStamps!)
+              : 'Draft');
+
+    final isSelected = sms.id != null && _selectedIds.contains(sms.id);
+
+    return InkWell(
+      onTap: () {
+        if (sms.id == null) return;
+        setState(() {
+          if (_selectedIds.contains(sms.id)) {
+            _selectedIds.remove(sms.id);
+          } else {
+            _selectedIds.add(sms.id!);
+          }
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.grey.shade300 : Colors.transparent,
+            width: 10.0,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.eventTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  ),
+                ),
+                if (isSelected)
+                  Icon(
+                    Icons.check_circle,
+                    color: _isActionsEnabled
+                        ? const Color(0xFFFBB03B)
+                        : Colors.grey,
+                    size: 20,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Divider(color: Colors.grey.shade200, height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text(
+                  dateStr,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

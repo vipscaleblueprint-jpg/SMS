@@ -17,6 +17,7 @@ class CampaignDialog extends StatefulWidget {
 class _CampaignDialogState extends State<CampaignDialog> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _timeController = TextEditingController();
 
   final TextEditingController _recipientsController = TextEditingController();
   final FocusNode _recipientsFocusNode = FocusNode();
@@ -58,8 +59,9 @@ class _CampaignDialogState extends State<CampaignDialog> {
       final minute = date.minute.toString().padLeft(2, '0');
       final period = date.hour < 12 ? 'AM' : 'PM';
 
-      _dateController.text =
-          "$month $day, $year ${hour.toString().padLeft(2, '0')}:$minute $period";
+      _dateController.text = "$month $day, $year";
+      _timeController.text =
+          "${hour.toString().padLeft(2, '0')}:$minute $period";
 
       if (widget.event!.recipients != null) {
         try {
@@ -83,19 +85,19 @@ class _CampaignDialogState extends State<CampaignDialog> {
   void dispose() {
     _titleController.dispose();
     _dateController.dispose();
+    _timeController.dispose();
 
     _recipientsController.dispose();
     _recipientsFocusNode.dispose();
     super.dispose();
   }
 
-  // ... (rest of _pickDateTime method remains the same) ...
-  Future<void> _pickDateTime() async {
+  Future<void> _pickDate() async {
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? now,
-      firstDate: now,
+      firstDate: DateTime(2000), // Allow past dates
       lastDate: DateTime(now.year + 5),
       builder: (context, child) {
         return Theme(
@@ -113,6 +115,32 @@ class _CampaignDialogState extends State<CampaignDialog> {
 
     if (date == null) return;
 
+    setState(() {
+      _selectedDate = date;
+
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      final month = months[date.month - 1];
+      final day = date.day.toString().padLeft(2, '0');
+      final year = date.year;
+
+      _dateController.text = "$month $day, $year";
+    });
+  }
+
+  Future<void> _pickTime() async {
     final time = await showTimePicker(
       context: context,
       initialTime: _selectedTime ?? TimeOfDay.now(),
@@ -133,34 +161,14 @@ class _CampaignDialogState extends State<CampaignDialog> {
     if (time == null) return;
 
     setState(() {
-      _selectedDate = date;
       _selectedTime = time;
-
-      // Format: Feb 19, 2024 03:00 AM
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      final month = months[date.month - 1];
-      final day = date.day.toString().padLeft(2, '0');
-      final year = date.year;
 
       final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
       final minute = time.minute.toString().padLeft(2, '0');
       final period = time.period == DayPeriod.am ? 'AM' : 'PM';
 
-      _dateController.text =
-          "$month $day, $year ${hour.toString().padLeft(2, '0')}:$minute $period";
+      _timeController.text =
+          "${hour.toString().padLeft(2, '0')}:$minute $period";
     });
   }
 
@@ -207,40 +215,76 @@ class _CampaignDialogState extends State<CampaignDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Event Starts Field
+            // Event Starts Fields
             const Text(
               'Event Starts',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickDateTime,
-              child: AbsorbPointer(
-                child: TextField(
-                  controller: _dateController,
-                  decoration: InputDecoration(
-                    hintText: 'Select Date & Time',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    suffixIcon: Icon(
-                      Icons.calendar_today,
-                      color: Colors.grey[400],
-                      size: 20,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+            Column(
+              children: [
+                // Date Picker
+                GestureDetector(
+                  onTap: _pickDate,
+                  child: AbsorbPointer(
+                    child: TextField(
+                      controller: _dateController,
+                      decoration: InputDecoration(
+                        hintText: 'Date',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        suffixIcon: Icon(
+                          Icons.calendar_today,
+                          color: Colors.grey[400],
+                          size: 20,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                // Time Picker
+                GestureDetector(
+                  onTap: _pickTime,
+                  child: AbsorbPointer(
+                    child: TextField(
+                      controller: _timeController,
+                      decoration: InputDecoration(
+                        hintText: 'Time',
+                        hintStyle: TextStyle(color: Colors.grey[400]),
+                        suffixIcon: Icon(
+                          Icons.access_time,
+                          color: Colors.grey[400],
+                          size: 20,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -305,14 +349,20 @@ class _CampaignDialogState extends State<CampaignDialog> {
                 ElevatedButton(
                   onPressed: () {
                     if (_titleController.text.isNotEmpty &&
-                        _dateController.text.isNotEmpty) {
+                        _dateController.text.isNotEmpty &&
+                        _timeController.text.isNotEmpty) {
                       final recipientsData = {
                         'contacts': _selectedContactIds.toList(),
                         'tags': _selectedTagIds.toList(),
                       };
+
+                      // Combine Date and Time
+                      final combinedDateString =
+                          "${_dateController.text} ${_timeController.text}";
+
                       widget.onSave(
                         _titleController.text,
-                        _dateController.text,
+                        combinedDateString,
                         jsonEncode(recipientsData),
                       );
                       Navigator.of(context).pop();

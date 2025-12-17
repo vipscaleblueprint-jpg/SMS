@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'screens/loading_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/signup_screen.dart';
@@ -28,7 +29,8 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const LoginScreen(),
+        '/': (context) => const LoadingScreen(),
+        '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
         '/signup': (context) => const SignupScreen(),
         '/settings': (context) => const SettingsScreen(),

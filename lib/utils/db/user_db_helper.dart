@@ -66,9 +66,15 @@ class UserDbHelper {
     return null;
   }
 
-  Future<void> deleteUser() async {
+  Future<int> deleteUser() async {
     final db = await database;
-    final count = await db.delete('users');
-    print('DB: Deleted $count rows from users table');
+    try {
+      final count = await db.delete('users');
+      print('DB: Deleted $count rows from users table');
+      return count;
+    } catch (e) {
+      print('DB: Error deleting user: $e');
+      return 0;
+    }
   }
 }

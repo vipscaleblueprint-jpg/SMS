@@ -338,8 +338,18 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
         // 1. Delete User (Auth) - PRIORITY
         try {
-          await UserDbHelper().deleteUser();
-          debugPrint('Logout: User deleted from DB.');
+          final count = await UserDbHelper().deleteUser();
+          debugPrint('Logout: User deleted from DB. Rows affected: $count');
+
+          // Verification
+          final checkUser = await UserDbHelper().getUser();
+          if (checkUser != null) {
+            debugPrint('Logout CRITICAL: User still exists after delete!');
+            // Force delete again?
+            await UserDbHelper().deleteUser();
+          } else {
+            debugPrint('Logout: Verification successful, user is null.');
+          }
         } catch (e) {
           debugPrint('Logout: Error deleting user: $e');
         }
@@ -359,7 +369,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
         if (mounted) {
           // Navigate back to login screen and remove all previous routes
-          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (route) => false);
         }
       } else if (value == 'settings') {
         // Navigate to settings screen

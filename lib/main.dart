@@ -8,9 +8,22 @@ import 'screens/signup_screen.dart';
 import 'screens/home/settings_screen.dart';
 import 'screens/home/add_contact_screen.dart';
 
+import 'package:flutter/services.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AndroidAlarmManager.initialize();
+
+  // Set status bar to transparent with dark icons (light mode style)
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness:
+          Brightness.dark, // Dark icons for light background
+      statusBarBrightness: Brightness.light, // iOS light status bar
+    ),
+  );
+
   runApp(const ProviderScope(child: MyApp()));
 }
 

@@ -6,6 +6,7 @@ import 'dart:convert'; // Added for safer decoding
 import 'dart:io';
 import 'package:flutter_contacts/flutter_contacts.dart' as flutter_contacts;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:mobile_number/mobile_number.dart'; // Add import
 import '../../widgets/modals/add_tag_dialog.dart';
 import '../../widgets/list/contacts_list.dart';
 import '../../widgets/list/tags_list.dart';
@@ -45,6 +46,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _checkPermissions(); // Request permissions on Home load
+
     // Initialize user provider with passed params if available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.userName != null) {
@@ -58,6 +61,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     _pages = [const CampaignsScreen(), ContactsPage(), const SendScreen()];
+  }
+
+  Future<void> _checkPermissions() async {
+    // Request all necessary permissions
+    await [
+      Permission.sms,
+      Permission.contacts,
+      Permission.phone,
+      Permission.notification,
+    ].request();
+
+    // Specific check for MobileNumber plugin
+    try {
+      if (!await MobileNumber.hasPhonePermission) {
+        await MobileNumber.requestPhonePermission;
+      }
+    } catch (e) {
+      debugPrint('Error checking mobile number permission: $e');
+    }
   }
 
   @override

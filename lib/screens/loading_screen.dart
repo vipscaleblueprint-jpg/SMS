@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:mobile_number/mobile_number.dart';
+
 import '../utils/db/user_db_helper.dart';
 import 'login_screen.dart';
 import 'home/home_screen.dart';
@@ -20,30 +19,8 @@ class _LoadingScreenState extends State<LoadingScreen> {
   }
 
   Future<void> _bootstrap() async {
-    // 1. Request Permissions
-    await _checkPermissions();
-
-    // 2. Check Session
+    // Check Session
     await _checkSession();
-  }
-
-  Future<void> _checkPermissions() async {
-    // Request all necessary permissions
-    await [
-      Permission.sms,
-      Permission.contacts,
-      Permission.phone,
-      Permission.notification,
-    ].request();
-
-    // Specific check for MobileNumber plugin
-    try {
-      if (!await MobileNumber.hasPhonePermission) {
-        await MobileNumber.requestPhonePermission;
-      }
-    } catch (e) {
-      debugPrint('Error checking mobile number permission: $e');
-    }
   }
 
   Future<void> _checkSession() async {

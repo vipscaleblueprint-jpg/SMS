@@ -1,5 +1,6 @@
 import 'settings.dart';
 import 'template.dart';
+import 'dart:convert';
 
 class User {
   final String id;
@@ -75,6 +76,35 @@ class User {
               ?.map((t) => Template.fromJson(t as Map<String, dynamic>))
               .toList() ??
           [],
+    );
+  }
+  Map<String, dynamic> toDbMap() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'created': created.toIso8601String(),
+      'access_token': access_token,
+      'numbers': jsonEncode(numbers),
+      'settings': jsonEncode(settings.toJson()),
+      'templates': jsonEncode(templates.map((t) => t.toJson()).toList()),
+    };
+  }
+
+  factory User.fromDbMap(Map<String, dynamic> map) {
+    return User(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      email: map['email'] as String,
+      created: DateTime.parse(map['created'] as String),
+      access_token: map['access_token'] as String?,
+      numbers: (jsonDecode(map['numbers'] as String) as List<dynamic>)
+          .map((e) => e as String)
+          .toList(),
+      settings: Settings.fromJson(jsonDecode(map['settings'] as String)),
+      templates: (jsonDecode(map['templates'] as String) as List<dynamic>)
+          .map((t) => Template.fromJson(t))
+          .toList(),
     );
   }
 }

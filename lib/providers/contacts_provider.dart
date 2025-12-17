@@ -64,6 +64,14 @@ class ContactsNotifier extends Notifier<List<Contact>> {
     }
     await _loadContacts();
   }
+
+  // =========================
+  // CLEAR
+  // =========================
+
+  void clear() {
+    state = [];
+  }
 }
 
 final contactsProvider = NotifierProvider<ContactsNotifier, List<Contact>>(

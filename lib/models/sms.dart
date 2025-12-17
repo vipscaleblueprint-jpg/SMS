@@ -7,6 +7,7 @@ enum SmsStatus {
 
 class Sms {
   final int? id;
+  final String? title;
   final String message;
   final String? contact_id;
   final String? phone_number;
@@ -18,6 +19,7 @@ class Sms {
 
   Sms({
     this.id,
+    this.title,
     required this.message,
     this.contact_id,
     this.phone_number,
@@ -31,6 +33,7 @@ class Sms {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'title': title,
       'message': message,
       'contact_id': contact_id,
       'phone_number': phone_number,
@@ -57,14 +60,14 @@ class Sms {
       }
     } else if (map.containsKey('isSent')) {
       // Backward compatibility for existing rows before migration if we didn't wipe
-      final isSent = (map['isSent'] as int) == 1;
+      // final isSent = (map['isSent'] as int) == 1; // Unused variable
+      final isSent = (map['isSent'] as int) == 1; // Keeping logic
       status = isSent ? SmsStatus.sent : SmsStatus.pending;
-      // Note: mapping old "sent=false" to "pending" might be wrong if it was a draft.
-      // But we are wiping DB so it's fine.
     }
 
     return Sms(
       id: map['id'] as int?,
+      title: map['title'] as String?,
       message: map['message'] as String,
       contact_id: map['contact_id'] as String?,
       phone_number: map['phone_number'] as String?,

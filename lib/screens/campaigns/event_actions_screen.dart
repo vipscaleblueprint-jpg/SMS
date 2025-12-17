@@ -154,31 +154,51 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Event Actions Header with Toggle
+                // Event Actions Header with Toggle (Includes Date)
                 Container(
                   color: const Color(0xFFF1F1F1),
-                  padding: const EdgeInsets.only(
-                    left: 16.0,
-                    top: 16.0,
-                    bottom: 16.0,
-                    right: 16.0,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
                     children: [
-                      const Text(
-                        'Event Actions',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Event Actions',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          Switch(
+                            value: _isActionsEnabled,
+                            onChanged: _toggleEventStatus,
+                            activeColor: Colors.white,
+                            activeTrackColor: const Color(0xFFFBB03B),
+                          ),
+                        ],
                       ),
-                      Switch(
-                        value: _isActionsEnabled,
-                        onChanged: _toggleEventStatus,
-                        activeColor: Colors.white,
-                        activeTrackColor: const Color(0xFFFBB03B),
+                      const SizedBox(height: 8),
+                      // Date Row inside the gray box
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.eventDate,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -188,47 +208,27 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                 // Action List Items
                 smsListAsync.when(
                   data: (smsList) {
-                    final beforeList = <Sms>[];
-                    final afterList = <Sms>[];
+                    // Sort all SMS by schedule_time
+                    final sortedList = List<Sms>.from(smsList);
+                    sortedList.sort((a, b) {
+                      final dateA =
+                          a.schedule_time ?? a.sentTimeStamps ?? DateTime.now();
+                      final dateB =
+                          b.schedule_time ?? b.sentTimeStamps ?? DateTime.now();
+                      return dateA.compareTo(dateB);
+                    });
 
-                    for (var sms in smsList) {
-                      if (sms.schedule_time != null &&
-                          sms.schedule_time!.isBefore(eventDateTime!)) {
-                        beforeList.add(sms);
-                      } else {
-                        afterList.add(sms);
-                      }
-                    }
-
-                    // Sort lists if needed (assuming DB returns insertion order or similar, but date sort is better)
-                    beforeList.sort(
-                      (a, b) => a.schedule_time!.compareTo(b.schedule_time!),
-                    );
-                    // afterList sort? undefined schedule_time (null) go last or first?
-                    // Let's keep them as is or sort by ID.
-
-                    if (smsList.isEmpty) {
-                      // Even if no SMS, show Event Card
-                      return ListView(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        children: [_buildEventCard()],
-                      );
+                    if (sortedList.isEmpty) {
+                      return const SizedBox(height: 16);
                     }
 
                     return ListView(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      children: [
-                        ...beforeList.map((sms) => _buildSmsItem(sms)),
-                        // Spacer or Separator?
-                        if (beforeList.isNotEmpty) const SizedBox(height: 16),
-                        _buildEventCard(),
-                        if (afterList.isNotEmpty) const SizedBox(height: 16),
-                        ...afterList.map((sms) => _buildSmsItem(sms)),
-                      ],
+                      children: sortedList
+                          .map((sms) => _buildSmsItem(sms))
+                          .toList(),
                     );
                   },
                   loading: () => const Padding(
@@ -272,6 +272,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                   child: const Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           '+ Add SMS',
@@ -301,41 +302,20 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  widget.eventTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
-                ),
-              ),
-              Icon(
-                Icons.check_circle,
-                color: _isActionsEnabled
-                    ? const Color(0xFFFBB03B)
-                    : Colors.grey,
-                size: 20,
-              ),
-            ],
+          Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              widget.eventDate,
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
           ),
-          const SizedBox(height: 8),
-          Divider(color: Colors.grey.shade200, height: 1),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-              const SizedBox(width: 8),
-              Text(
-                widget.eventDate,
-                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-              ),
-            ],
+          Icon(
+            Icons.check_circle,
+            color: _isActionsEnabled ? const Color(0xFFFBB03B) : Colors.grey,
+            size: 20,
           ),
         ],
       ),
@@ -351,8 +331,9 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
               : 'Draft');
 
     // Determining styles based on status
-    final isDraft = sms.status == SmsStatus.draft;
-    final isSent = sms.status == SmsStatus.sent;
+    // Treat as "Draft" only if there is no schedule time.
+    // Scheduled items (even if set to 'draft' status when event is paused) should appear as cards with checkmarks.
+    final isDraft = sms.status == SmsStatus.draft && sms.schedule_time == null;
 
     // Container Decoration
     final decoration = isDraft
@@ -417,11 +398,10 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
-                    widget.eventTitle,
+                    sms.title?.isNotEmpty == true ? sms.title! : 'Untitled SMS',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 16, color: Colors.black87),
@@ -431,12 +411,15 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                 if (!isDraft)
                   Icon(
                     Icons.check_circle,
-                    color: isSent ? const Color(0xFFFDB713) : Colors.grey,
+                    color: _isActionsEnabled
+                        ? const Color(0xFFFBB03B)
+                        : Colors.grey,
                     size: 20,
                   ),
               ],
             ),
-
+            const SizedBox(height: 8),
+            Divider(color: Colors.grey.shade200, height: 1),
             const SizedBox(height: 12),
             Row(
               children: [

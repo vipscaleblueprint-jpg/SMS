@@ -22,7 +22,7 @@ class SmsDbHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -32,6 +32,7 @@ class SmsDbHelper {
     await db.execute('''
       CREATE TABLE sms(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
         message TEXT NOT NULL,
         contact_id TEXT,
         phone_number TEXT,
@@ -49,6 +50,9 @@ class SmsDbHelper {
       // Re-create table for version 3 (status column change)
       await db.execute('DROP TABLE IF EXISTS sms');
       await _onCreate(db, newVersion);
+    } else if (oldVersion < 4) {
+      // Version 3 to 4: Add title column
+      await db.execute('ALTER TABLE sms ADD COLUMN title TEXT');
     }
   }
 
@@ -96,5 +100,10 @@ class SmsDbHelper {
   Future<int> deleteSms(int id) async {
     final db = await database;
     return await db.delete('sms', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteAllSms() async {
+    final db = await database;
+    await db.delete('sms');
   }
 }

@@ -5,6 +5,7 @@ import '../../providers/contacts_provider.dart';
 import '../../models/tag.dart';
 import '../modals/edit_tag_dialog.dart';
 import '../modals/delete_tag_dialog.dart';
+import '../modals/tag_contacts_dialog.dart';
 
 class TagsList extends ConsumerStatefulWidget {
   const TagsList({super.key});
@@ -261,7 +262,13 @@ class _TagsListState extends ConsumerState<TagsList> {
                           if (_isSelectionMode) {
                             _toggleItemSelection(tag.id);
                           } else {
-                            // Maybe open details? But edit is separate currently
+                            showDialog(
+                              context: context,
+                              builder: (context) => TagContactsDialog(
+                                tag: tag,
+                                contacts: contacts,
+                              ),
+                            );
                           }
                         },
                         onLongPress: () {

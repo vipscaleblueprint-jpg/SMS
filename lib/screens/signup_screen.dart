@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:uuid/uuid.dart';
+import '../../models/user.dart';
+import '../../models/settings.dart';
+import '../../utils/db/user_db_helper.dart';
+import 'otp_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -8,14 +15,78 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  void _signup() {
-    // TODO: Implement signup logic
-    // For now, just pop back to login
-    Navigator.of(context).pop();
+  Future<void> _signup() async {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final email = _emailController.text.trim();
+
+    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final url = Uri.parse(
+        'https://n8n.srv1151765.hstgr.cloud/webhook/sms/register',
+      );
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'first_name': firstName,
+          'last_name': lastName,
+          'email': email,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Save user to local DB
+        final newUser = User(
+          id: const Uuid().v4(),
+          name: '$firstName $lastName',
+          email: email,
+          created: DateTime.now(),
+          settings: const Settings(),
+        );
+
+        await UserDbHelper().insertUser(newUser);
+
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => OtpScreen(email: email)),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Signup failed: ${response.statusCode}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -78,12 +149,29 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Name Field
+              // First Name Field
               TextField(
-                controller: _nameController,
+                controller: _firstNameController,
                 decoration: InputDecoration(
-                  labelText: 'Full Name',
-                  hintText: 'Enter your name',
+                  labelText: 'First Name',
+                  hintText: 'Enter your first name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Last Name Field
+              TextField(
+                controller: _lastNameController,
+                decoration: InputDecoration(
+                  labelText: 'Last Name',
+                  hintText: 'Enter your last name',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -110,29 +198,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // Password Field
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  hintText: 'Create a password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-              ),
               const SizedBox(height: 32),
 
-              // Sign Up Button
+              // Sign Up Button -> OTP
               ElevatedButton(
-                onPressed: _signup,
+                onPressed: _isLoading ? null : _signup,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber,
                   foregroundColor: Colors.white,
@@ -142,10 +212,22 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Sign Up',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Sign Up',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
 
               const SizedBox(height: 24),

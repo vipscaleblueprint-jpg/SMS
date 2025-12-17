@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert'; // Added for safer decoding
@@ -10,10 +11,15 @@ import '../../widgets/list/contacts_list.dart';
 import '../../widgets/list/tags_list.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/tags_provider.dart';
+import '../../providers/user_provider.dart'; // Import UserProvider
 import '../../services/csv_service.dart';
 import '../../models/contact.dart';
 import '../../models/tag.dart';
+import '../../utils/db/user_db_helper.dart'; // Import UserDbHelper
+import '../../utils/db/contact_db_helper.dart';
+import '../../utils/db/sms_db_helper.dart';
 import 'settings_screen.dart';
+import 'edit_profile_screen.dart'; // Import EditProfileScreen
 import 'add_contact_screen.dart';
 import '../send/send_screen.dart';
 
@@ -21,21 +27,38 @@ import '../campaigns/campaigns_screen.dart';
 
 import 'tag_detail_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends ConsumerStatefulWidget {
+  final String? userName;
+  final String? userPhotoUrl;
+
+  const HomeScreen({super.key, this.userName, this.userPhotoUrl});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const CampaignsScreen(),
-    const ContactsPage(),
-    const SendScreen(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize user provider with passed params if available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.userName != null) {
+        ref
+            .read(userProvider.notifier)
+            .setUser(widget.userName!, widget.userPhotoUrl);
+      } else {
+        // Load from DB if no params passed (e.g. from cold start)
+        ref.read(userProvider.notifier).loadUserFromDb();
+      }
+    });
+
+    _pages = [const CampaignsScreen(), ContactsPage(), const SendScreen()];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +313,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       Offset.zero & overlay.size,
     );
 
-    await showMenu(
+    final value = await showMenu<String>(
       context: context,
       position: position,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -299,21 +322,56 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       items: [
         const PopupMenuItem<String>(value: 'settings', child: Text('Settings')),
         const PopupMenuItem<String>(
+          value: 'edit_profile',
+          child: Text('Edit Profile'),
+        ),
+        const PopupMenuItem<String>(
           value: 'logout',
           child: Text('Logout', style: TextStyle(color: Colors.red)),
         ),
       ],
-    ).then((value) {
+    );
+
+    if (value != null && mounted) {
       if (value == 'logout') {
-        // Navigate back to login screen
-        Navigator.of(context).pushReplacementNamed('/');
+        debugPrint('Logout: Starting standard logout...');
+
+        // 1. Delete User (Auth) - PRIORITY
+        try {
+          await UserDbHelper().deleteUser();
+          debugPrint('Logout: User deleted from DB.');
+        } catch (e) {
+          debugPrint('Logout: Error deleting user: $e');
+        }
+
+        // 2. Wipe other Data (Best effort)
+        try {
+          await ContactDbHelper.instance.clearContacts();
+          await SmsDbHelper().deleteAllSms();
+          debugPrint('Logout: App data wiped.');
+        } catch (e) {
+          debugPrint('Logout: Error wiping app data: $e');
+        }
+
+        // 3. Clear Providers (Memory)
+        ref.read(userProvider.notifier).clearUser();
+        ref.read(contactsProvider.notifier).clear();
+
+        if (mounted) {
+          // Navigate back to login screen and remove all previous routes
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        }
       } else if (value == 'settings') {
         // Navigate to settings screen
         Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
+      } else if (value == 'edit_profile') {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+        );
       }
-    });
+    }
   }
 
   void _showAddTagDialog() {
@@ -335,6 +393,9 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch user provider
+    final user = ref.watch(userProvider);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
       child: Column(
@@ -353,26 +414,31 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(30),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: Color(0xFFFBB03B),
+                        backgroundColor: const Color(0xFFFBB03B),
                         radius: 16,
-                        child: Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        backgroundImage: user.photoUrl != null
+                            ? NetworkImage(user.photoUrl!)
+                            : null,
+                        child: user.photoUrl == null
+                            ? const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 20,
+                              )
+                            : null,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        'Antony John',
-                        style: TextStyle(
+                        user.name,
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                     ],
                   ),
                 ),

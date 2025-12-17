@@ -23,6 +23,7 @@ class AddSmsScreen extends ConsumerStatefulWidget {
 }
 
 class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
+  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _bodyController = TextEditingController(
     text:
         "Subject: Thanks, your spot is saved!\n\n{{first_name}}\n\nThanks for registering for [your webinar name]!\nHere are the details of when we're starting:\nTime: {{ event_time | date: \"%B %d, %Y %I:%M%p (%Z)\" }}\n\nThe webinar link will be emailed to you on the day of the event :)\n\nHere's what I'll be covering in the webinar:\n[insert a numbered list or bullet points of the topics you'll be talking about in the live stream]\n\nTalk soon,\nYour Name",
@@ -62,6 +63,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
     });
 
     if (widget.smsToEdit != null) {
+      _titleController.text = widget.smsToEdit!.title ?? '';
       _bodyController.text = widget.smsToEdit!.message;
 
       // Determine orientation
@@ -88,6 +90,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _bodyController.dispose();
     _relativeTimeValueController.dispose();
     _bodyFocusNode.dispose();
@@ -171,6 +174,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
 
     final sms = Sms(
       id: widget.smsToEdit?.id, // Preserve ID if editing
+      title: _titleController.text,
       message: _bodyController.text,
       event_id: widget.eventId,
       status: finalScheduleTime == null ? SmsStatus.draft : SmsStatus.pending,
@@ -270,6 +274,38 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Title Section
+                  const Text(
+                    'Title',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: TextField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'Enter title',
+                        contentPadding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
                   // When Section
                   const Text(
                     'When',
@@ -429,7 +465,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                                     controller: _relativeTimeValueController,
                                     keyboardType: TextInputType.number,
                                     decoration: const InputDecoration(
-                                      hintText: '3',
+                                      hintText: '0',
                                       border: InputBorder.none,
                                       contentPadding: EdgeInsets.symmetric(
                                         horizontal: 16,

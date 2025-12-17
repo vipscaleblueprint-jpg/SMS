@@ -7,6 +7,9 @@ import '../welcome_message_screen.dart';
 import 'event_actions_screen.dart';
 import '../home/settings_screen.dart';
 import '../../widgets/modals/campaign_dialog.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../../providers/user_provider.dart';
+import '../home/edit_profile_screen.dart';
 import '../../widgets/list/events_list.dart';
 
 class CampaignsScreen extends ConsumerStatefulWidget {
@@ -45,19 +48,49 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
       items: [
         const PopupMenuItem<String>(value: 'settings', child: Text('Settings')),
         const PopupMenuItem<String>(
+          value: 'edit_profile',
+          child: Text('Edit Profile'),
+        ),
+        const PopupMenuItem<String>(
           value: 'logout',
           child: Text('Logout', style: TextStyle(color: Colors.red)),
         ),
       ],
-    ).then((value) {
+    ).then((value) async {
       if (value == 'logout') {
-        // Navigate back to login screen
-        Navigator.of(context).pushReplacementNamed('/');
+        // Sign out from Google to force account selection next time
+        try {
+          final googleSignIn = GoogleSignIn();
+          debugPrint('Logout: Starting Google disconnect sequence...');
+
+          try {
+            await googleSignIn.signInSilently();
+          } catch (e) {
+            // ignore
+          }
+
+          try {
+            await googleSignIn.disconnect();
+          } catch (e) {
+            // ignore
+          }
+
+          await googleSignIn.signOut();
+        } catch (e) {
+          debugPrint('Error during general logout: $e');
+        }
+
+        if (context.mounted) {
+          Navigator.of(context).pushReplacementNamed('/');
+        }
       } else if (value == 'settings') {
-        // Navigate to settings screen
         Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
+      } else if (value == 'edit_profile') {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+        );
       }
     });
   }
@@ -219,6 +252,8 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(userProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -242,26 +277,31 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                         color: Colors.grey[200],
                         borderRadius: BorderRadius.circular(30),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
                           CircleAvatar(
-                            backgroundColor: Color(0xFFFBB03B),
+                            backgroundColor: const Color(0xFFFBB03B),
                             radius: 16,
-                            child: Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                            backgroundImage: user.photoUrl != null
+                                ? NetworkImage(user.photoUrl!)
+                                : null,
+                            child: user.photoUrl == null
+                                ? const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 20,
+                                  )
+                                : null,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'Antony John',
-                            style: TextStyle(
+                            user.name,
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                         ],
                       ),
                     ),

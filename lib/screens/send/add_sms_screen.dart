@@ -100,6 +100,31 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
       initialDate: _selectedDateTime ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            datePickerTheme: const DatePickerThemeData(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              headerBackgroundColor: Color(0xFFFFF0D6),
+              headerForegroundColor: Colors.black,
+            ),
+            timePickerTheme: const TimePickerThemeData(
+              backgroundColor: Colors.white,
+            ),
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFFFBB03B),
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+              surface: Colors.white,
+              surfaceContainerHigh:
+                  Colors.white, // For M3 TimePicker background potentially
+            ),
+            dialogBackgroundColor: Colors.white,
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (date != null && mounted) {
@@ -108,6 +133,29 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
         initialTime: TimeOfDay.fromDateTime(
           _selectedDateTime ?? DateTime.now(),
         ),
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              timePickerTheme: const TimePickerThemeData(
+                backgroundColor: Colors.white,
+                hourMinuteColor: Color(0xFFFFF0D6), // Light orange for input
+                dayPeriodColor: Color(0xFFFFF0D6), // Light orange for AM/PM
+                dialHandColor: Color(0xFFFBB03B),
+                dialBackgroundColor: Colors.white,
+              ),
+              colorScheme: const ColorScheme.light(
+                primary: Color(0xFFFBB03B),
+                onPrimary: Colors.white,
+                onSurface: Colors.black,
+                surface: Colors.white,
+                surfaceContainerHigh: Colors.white,
+                surfaceContainerHighest: Colors.white,
+              ),
+              dialogBackgroundColor: Colors.white,
+            ),
+            child: child!,
+          );
+        },
       );
 
       if (time != null) {
@@ -197,6 +245,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('Delete SMS?'),
         content: const Text('Are you sure you want to delete this message?'),
         actions: [
@@ -586,6 +635,8 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                       ),
                       // Add Customization Button
                       PopupMenuButton<String>(
+                        color: Colors.white,
+                        surfaceTintColor: Colors.white,
                         onSelected: (value) {
                           String placeholder = '';
                           switch (value) {

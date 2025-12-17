@@ -79,6 +79,7 @@ class _ComposeSmsSheetState extends State<ComposeSmsSheet> {
                 SizedBox(
                   width: 130,
                   child: DropdownButtonFormField<Country>(
+                    dropdownColor: Colors.white,
                     value: _selectedCountry,
                     decoration: const InputDecoration(
                       labelText: 'Country',

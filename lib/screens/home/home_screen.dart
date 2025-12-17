@@ -235,6 +235,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       position: position,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
+      surfaceTintColor: Colors.white,
       elevation: 8,
       items: [
         PopupMenuItem<String>(
@@ -295,6 +296,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       position: position,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
+      surfaceTintColor: Colors.white,
       elevation: 8,
       items: [
         const PopupMenuItem<String>(value: 'settings', child: Text('Settings')),
@@ -335,136 +337,140 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Top Bar: User Profile
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              GestureDetector(
-                key: _profileKey,
-                onTap: _showProfileMenu,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: const Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: Color(0xFFFBB03B),
-                        radius: 16,
-                        child: Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Antony John',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Tabs: All Contacts / Manage Tags AND Add Contact Button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => setState(() => _showAllContacts = true),
-                    child: Column(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Bar: User Profile
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                GestureDetector(
+                  key: _profileKey,
+                  onTap: _showProfileMenu,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Row(
                       children: [
-                        Text(
-                          'All Contacts',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _showAllContacts
-                                ? Colors.black
-                                : Colors.grey,
-                            decoration: _showAllContacts
-                                ? TextDecoration.underline
-                                : null,
-                            decorationColor: Colors.black,
-                            decorationThickness: 2,
+                        CircleAvatar(
+                          backgroundColor: Color(0xFFFBB03B),
+                          radius: 16,
+                          child: Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 20,
                           ),
                         ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Antony John',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        SizedBox(width: 12),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 20),
-                  GestureDetector(
-                    onTap: () => setState(() => _showAllContacts = false),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Manage Tags',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: !_showAllContacts
-                                ? Colors.black
-                                : Colors.black,
-                            decoration: !_showAllContacts
-                                ? TextDecoration.underline
-                                : null,
-                            decorationColor: Colors.black,
-                            decorationThickness: 2,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Tabs: All Contacts / Manage Tags AND Add Contact Button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _showAllContacts = true),
+                      child: Column(
+                        children: [
+                          Text(
+                            'All Contacts',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _showAllContacts
+                                  ? Colors.black
+                                  : Colors.grey,
+                              decoration: _showAllContacts
+                                  ? TextDecoration.underline
+                                  : null,
+                              decorationColor: Colors.black,
+                              decorationThickness: 2,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    GestureDetector(
+                      onTap: () => setState(() => _showAllContacts = false),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Manage Tags',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: !_showAllContacts
+                                  ? Colors.black
+                                  : Colors.black,
+                              decoration: !_showAllContacts
+                                  ? TextDecoration.underline
+                                  : null,
+                              decorationColor: Colors.black,
+                              decorationThickness: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                ElevatedButton(
+                  key: _addContactBtnKey,
+                  onPressed: _showAllContacts
+                      ? _showAddContactMenu
+                      : _showAddTagDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFBB03B),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
                     ),
                   ),
-                ],
-              ),
-              ElevatedButton(
-                key: _addContactBtnKey,
-                onPressed: _showAllContacts
-                    ? _showAddContactMenu
-                    : _showAddTagDialog,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFBB03B),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+                  child: Text(
+                    _showAllContacts ? 'Add Contact' : 'Add Tag',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-                child: Text(
-                  _showAllContacts ? 'Add Contact' : 'Add Tag',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+              ],
+            ),
+            const SizedBox(height: 24),
 
-          // Conditional content based on tab selection
-          Expanded(
-            child: _showAllContacts ? const ContactsList() : const TagsList(),
-          ),
-        ],
+            // Conditional content based on tab selection
+            Expanded(
+              child: _showAllContacts ? const ContactsList() : const TagsList(),
+            ),
+          ],
+        ),
       ),
     );
   }

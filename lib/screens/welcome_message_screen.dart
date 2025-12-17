@@ -10,12 +10,6 @@ class WelcomeMessageScreen extends StatefulWidget {
 class _WelcomeMessageScreenState extends State<WelcomeMessageScreen> {
   final TextEditingController _messageController = TextEditingController();
 
-  void _showProfileMenu() {
-    // Reusing the profile menu logic if needed, or just a placeholder for now
-    // Since this is a specific screen, we might not need the full menu implementation here
-    // unless requested. For now, it's just the UI element.
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,40 +21,7 @@ class _WelcomeMessageScreenState extends State<WelcomeMessageScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: GestureDetector(
-              onTap: _showProfileMenu,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Color(0xFFFBB03B),
-                      radius: 16,
-                      child: Icon(Icons.person, color: Colors.white, size: 20),
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Antony John',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        actions: [],
       ),
       body: Column(
         children: [

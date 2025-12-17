@@ -60,6 +60,7 @@ class _ContactsListState extends ConsumerState<ContactsList> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         title: Text('Delete ${idsToDelete.length} Contacts?'),
         content: const Text(
           'Are you sure you want to delete the selected contacts? This action cannot be undone.',
@@ -239,6 +240,8 @@ class _ContactsListState extends ConsumerState<ContactsList> {
                   ),
                 )
               : ListView.separated(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   itemCount: filteredContacts.length,
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 16),

@@ -4,6 +4,7 @@ import '../../providers/contacts_provider.dart';
 import '../../providers/tags_provider.dart';
 import '../../models/contact.dart';
 import '../../models/tag.dart';
+import '../modals/tag_contacts_dialog.dart';
 
 class DropdownContacts extends ConsumerStatefulWidget {
   final TextEditingController controller;
@@ -121,6 +122,7 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
                       type: MaterialType.transparency,
                       elevation: 24,
                       child: AlertDialog(
+                        backgroundColor: Colors.white,
                         title: const Text('No Contacts'),
                         content: Text(
                           'The tag "${tag.name}" has no contacts associated with it.',
@@ -170,22 +172,67 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
     // Generate chips list
     final List<Widget> chips = [
       ...selectedTags.map(
-        (tag) => Chip(
-          label: Text(
-            tag.name,
-            style: const TextStyle(color: Color(0xFFFBB03B)),
+        (tag) => GestureDetector(
+          onLongPress: () async {
+            final allContacts = ref.read(contactsProvider);
+            final resultIds = await showDialog<List<String>>(
+              context: context,
+              builder: (context) =>
+                  TagContactsDialog(tag: tag, allContacts: allContacts),
+            );
+
+            if (resultIds != null) {
+              final contactsInTag = allContacts.where((c) {
+                return c.tags.any((t) => t.id == tag.id);
+              }).toList();
+
+              final allSelected = resultIds.length == contactsInTag.length;
+
+              if (allSelected) {
+                // Keep tag
+              } else {
+                // Remove tag (explode)
+                widget.onTagSelected(tag);
+
+                // Add individual contacts
+                for (final contactId in resultIds) {
+                  if (!widget.selectedContactIds.contains(contactId)) {
+                    final contact = allContacts.firstWhere(
+                      (c) => c.contact_id == contactId,
+                      orElse: () => Contact(
+                        contact_id: '',
+                        first_name: '',
+                        last_name: '',
+                        phone: '',
+                        tags: [],
+                        created: DateTime.now(),
+                      ),
+                    );
+                    if (contact.contact_id.isNotEmpty) {
+                      widget.onContactSelected(contact);
+                    }
+                  }
+                }
+              }
+            }
+          },
+          child: Chip(
+            label: Text(
+              tag.name,
+              style: const TextStyle(color: Color(0xFFFBB03B)),
+            ),
+            backgroundColor: Colors.transparent,
+            deleteIcon: const Icon(
+              Icons.close,
+              size: 18,
+              color: Color(0xFFFBB03B),
+            ),
+            onDeleted: () => widget.onTagSelected(tag),
+            shape: const StadiumBorder(
+              side: BorderSide(color: Color(0xFFFBB03B)),
+            ),
+            visualDensity: VisualDensity.compact,
           ),
-          backgroundColor: Colors.transparent,
-          deleteIcon: const Icon(
-            Icons.close,
-            size: 18,
-            color: Color(0xFFFBB03B),
-          ),
-          onDeleted: () => widget.onTagSelected(tag),
-          shape: const StadiumBorder(
-            side: BorderSide(color: Color(0xFFFBB03B)),
-          ),
-          visualDensity: VisualDensity.compact,
         ),
       ),
       if (widget.showContacts)
@@ -281,7 +328,7 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
   }
 }
 
-class _RecipientList extends ConsumerWidget {
+class _RecipientList extends ConsumerStatefulWidget {
   final String searchText;
   final Set<String> selectedContactIds;
   final Set<String> selectedTagIds;
@@ -301,11 +348,18 @@ class _RecipientList extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RecipientList> createState() => _RecipientListState();
+}
+
+class _RecipientListState extends ConsumerState<_RecipientList> {
+  bool _isContactsExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final contacts = ref.watch(contactsProvider);
     final tags = ref.watch(tagsProvider);
 
-    final query = searchText.toLowerCase();
+    final query = widget.searchText.toLowerCase();
 
     final filteredContacts = contacts.where((contact) {
       return contact.name.toLowerCase().contains(query) ||
@@ -315,6 +369,12 @@ class _RecipientList extends ConsumerWidget {
     final filteredTags = tags.where((tag) {
       return tag.name.toLowerCase().contains(query);
     }).toList();
+
+    // Determine displayed contacts based on expansion state
+    final displayedContacts =
+        _isContactsExpanded || filteredContacts.length <= 1
+        ? filteredContacts
+        : filteredContacts.take(1).toList();
 
     return Material(
       elevation: 4,
@@ -331,7 +391,64 @@ class _RecipientList extends ConsumerWidget {
           shrinkWrap: true,
           padding: EdgeInsets.zero,
           children: [
-            // Tags Section
+            // Contacts Section (Moved to Top)
+            if (widget.showContacts && filteredContacts.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                color: Colors.grey.shade100,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Contacts',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    if (filteredContacts.length > 1 && !_isContactsExpanded)
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isContactsExpanded = true;
+                          });
+                        },
+                        child: const Text(
+                          'See All',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFBB03B),
+                          ),
+                        ),
+                      ),
+                    if (filteredContacts.length > 1 && _isContactsExpanded)
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isContactsExpanded = false;
+                          });
+                        },
+                        child: const Text(
+                          'See Less',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFBB03B),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              ...displayedContacts.map((contact) => _buildContactItem(contact)),
+            ],
+
+            // Tags Section (Moved Below Contacts)
             if (filteredTags.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -351,29 +468,9 @@ class _RecipientList extends ConsumerWidget {
               ...filteredTags.map((tag) => _buildTagItem(context, tag, ref)),
             ],
 
-            // Contacts Section
-            if (showContacts && filteredContacts.isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                color: Colors.grey.shade100,
-                child: const Text(
-                  'Contacts',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-              ...filteredContacts.map((contact) => _buildContactItem(contact)),
-            ],
-
             // No results
             if (filteredTags.isEmpty &&
-                (showContacts ? filteredContacts.isEmpty : true))
+                (widget.showContacts ? filteredContacts.isEmpty : true))
               const Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Text(
@@ -389,7 +486,7 @@ class _RecipientList extends ConsumerWidget {
   }
 
   Widget _buildTagItem(BuildContext context, Tag tag, WidgetRef ref) {
-    final isSelected = selectedTagIds.contains(tag.id);
+    final isSelected = widget.selectedTagIds.contains(tag.id);
     final allContacts = ref.read(contactsProvider);
     final tagContactCount = allContacts
         .where((c) => c.tags.any((t) => t.id == tag.id))
@@ -398,9 +495,9 @@ class _RecipientList extends ConsumerWidget {
     return InkWell(
       onTap: () {
         if (tagContactCount == 0 && !isSelected) {
-          onZeroContactsTag(tag);
+          widget.onZeroContactsTag(tag);
         } else {
-          onTagSelected(tag);
+          widget.onTagSelected(tag);
         }
       },
       child: Container(
@@ -453,10 +550,10 @@ class _RecipientList extends ConsumerWidget {
   }
 
   Widget _buildContactItem(Contact contact) {
-    final isSelected = selectedContactIds.contains(contact.contact_id);
+    final isSelected = widget.selectedContactIds.contains(contact.contact_id);
 
     return InkWell(
-      onTap: () => onContactSelected(contact),
+      onTap: () => widget.onContactSelected(contact),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(

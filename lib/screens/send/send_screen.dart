@@ -68,6 +68,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          backgroundColor: Colors.white,
           title: const Text('Send Message'),
           content: const Text('When would you like to send this message?'),
           actions: [
@@ -85,12 +86,59 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                   initialDate: DateTime.now(),
                   firstDate: DateTime.now(),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        datePickerTheme: const DatePickerThemeData(
+                          backgroundColor: Colors.white,
+                          surfaceTintColor: Colors.transparent,
+                          headerBackgroundColor: Color(0xFFFFF0D6),
+                          headerForegroundColor: Colors.black,
+                        ),
+                        timePickerTheme: const TimePickerThemeData(
+                          backgroundColor: Colors.white,
+                        ),
+                        colorScheme: const ColorScheme.light(
+                          primary: Color(0xFFFBB03B),
+                          onPrimary: Colors.white,
+                          onSurface: Colors.black,
+                          surface: Colors.white,
+                          surfaceContainerHigh: Colors.white,
+                        ),
+                        dialogBackgroundColor: Colors.white,
+                      ),
+                      child: child!,
+                    );
+                  },
                 );
 
                 if (pickedDate != null && mounted) {
                   TimeOfDay? pickedTime = await showTimePicker(
                     context: mainContext,
                     initialTime: TimeOfDay.now(),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          timePickerTheme: const TimePickerThemeData(
+                            backgroundColor: Colors.white,
+                            hourMinuteColor: Color(0xFFFFF0D6),
+                            dayPeriodColor: Color(0xFFFFF0D6),
+                            dialHandColor: Color(0xFFFBB03B),
+                            dialBackgroundColor: Colors.white,
+                          ),
+                          colorScheme: const ColorScheme.light(
+                            primary: Color(0xFFFBB03B),
+                            onPrimary: Colors.white,
+                            onSurface: Colors.black,
+                            surface: Colors.white,
+                            surfaceContainerHigh: Colors.white,
+                            surfaceContainerHighest: Colors.white,
+                          ),
+                          dialogBackgroundColor: Colors.white,
+                        ),
+                        child: child!,
+                      );
+                    },
                   );
 
                   if (pickedTime != null && mounted) {
@@ -164,6 +212,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     showDialog(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: Column(
           mainAxisSize: MainAxisSize.min,

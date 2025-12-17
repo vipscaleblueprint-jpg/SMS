@@ -63,6 +63,7 @@ class _EventsListState extends ConsumerState<EventsList> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         title: Text('Delete ${idsToDelete.length} Events?'),
         content: const Text(
           'Are you sure you want to delete the selected events? This action cannot be undone.',

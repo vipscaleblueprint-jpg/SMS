@@ -41,6 +41,7 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
       position: position,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
+      surfaceTintColor: Colors.white,
       elevation: 8,
       items: [
         const PopupMenuItem<String>(value: 'settings', child: Text('Settings')),
@@ -94,6 +95,7 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
     showDialog(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -221,166 +223,173 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header with Profile
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 16.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    key: _profileKey,
-                    onTap: _showProfileMenu,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: Color(0xFFFBB03B),
-                            radius: 16,
-                            child: Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Antony John',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header with Profile
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 16.0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Events Title and Add Button
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Events',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: _showAddEventDialog,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFBB03B),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          child: const Text(
-                            'Add Event',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Welcome Message Card
-                    InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const WelcomeMessageScreen(),
-                          ),
-                        );
-                      },
+                    GestureDetector(
+                      key: _profileKey,
+                      onTap: _showProfileMenu,
                       child: Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(30),
                         ),
-                        child: Row(
+                        child: const Row(
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Welcome Message',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Send Welcome Message to new\nimported contacts',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
+                            CircleAvatar(
+                              backgroundColor: Color(0xFFFBB03B),
+                              radius: 16,
+                              child: Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 20,
                               ),
                             ),
-                            Transform.rotate(
-                              angle: -0.5, // Tilted paper plane
-                              child: const Icon(
-                                Icons.send,
-                                color: Colors.grey,
-                                size: 32,
+                            SizedBox(width: 8),
+                            Text(
+                              'Antony John',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
                             ),
+                            SizedBox(width: 12),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-
-                    EventsList(
-                      onDelete: _showDeleteEventDialog,
-                      onEdit: _showEditEventDialog,
-                      onTap: (event) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => EventActionsScreen(
-                              eventId: event.id!,
-                              eventTitle: event.name,
-                              eventDate: DateFormat(
-                                'MMM dd, yyyy hh:mm a',
-                              ).format(event.date),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Events Title and Add Button
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Events',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: _showAddEventDialog,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFBB03B),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                            child: const Text(
+                              'Add Event',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Welcome Message Card
+                      InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const WelcomeMessageScreen(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Welcome Message',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Send Welcome Message to new\nimported contacts',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Transform.rotate(
+                                angle: -0.5, // Tilted paper plane
+                                child: const Icon(
+                                  Icons.send,
+                                  color: Colors.grey,
+                                  size: 32,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      EventsList(
+                        onDelete: _showDeleteEventDialog,
+                        onEdit: _showEditEventDialog,
+                        onTap: (event) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => EventActionsScreen(
+                                eventId: event.id!,
+                                eventTitle: event.name,
+                                eventDate: DateFormat(
+                                  'MMM dd, yyyy hh:mm a',
+                                ).format(event.date),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

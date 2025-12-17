@@ -5,6 +5,7 @@ import '../../providers/contacts_provider.dart';
 import '../../models/tag.dart';
 import '../modals/edit_tag_dialog.dart';
 import '../modals/delete_tag_dialog.dart';
+import '../../screens/home/tag_detail_screen.dart';
 
 class TagsList extends ConsumerStatefulWidget {
   const TagsList({super.key});
@@ -74,6 +75,7 @@ class _TagsListState extends ConsumerState<TagsList> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         title: Text('Delete ${idsToDelete.length} Tags?'),
         content: const Text(
           'Are you sure you want to delete the selected tags? This will remove them from all contacts.',
@@ -261,7 +263,14 @@ class _TagsListState extends ConsumerState<TagsList> {
                           if (_isSelectionMode) {
                             _toggleItemSelection(tag.id);
                           } else {
-                            // Maybe open details? But edit is separate currently
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => TagDetailScreen(
+                                  tagName: tag.name,
+                                  peopleCount: count,
+                                ),
+                              ),
+                            );
                           }
                         },
                         onLongPress: () {

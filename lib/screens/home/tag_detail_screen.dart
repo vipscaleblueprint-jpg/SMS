@@ -185,69 +185,92 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: 24.0,
-                horizontal: 16.0,
-              ),
-              child: Text(
-                'Are you sure you want to\nremove this contact from\n${widget.tagName}?',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  height: 1.2,
+        backgroundColor: Colors.white,
+        child: Container(
+          width: 270, // Approximate standard iOS dialog width
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(
+                  top: 20.0,
+                  bottom: 20.0,
+                  left: 16.0,
+                  right: 16.0,
                 ),
-              ),
-            ),
-            const Divider(height: 1, thickness: 1),
-            InkWell(
-              onTap: () {
-                setState(() {
-                  // We need to remove from both the full list and the filtered list
-                  // Find the contact in the main list
-                  final contactToRemove = _filteredContacts[index];
-                  _contacts.remove(contactToRemove);
-                  // Update filtered list
-                  _onSearchChanged();
-                });
-                Navigator.of(context).pop();
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Text(
-                  'Delete',
+                child: Text(
+                  'Are you sure you want to\nremove this contact from\n${widget.tagName}?',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFFF5252), // Red
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 17,
+                    height: 1.3,
+                    color: Colors.black,
+                    fontFamily: '.SF UI Display', // iOS font attempt or default
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ),
-            ),
-            const Divider(height: 1, thickness: 1),
-            InkWell(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Text(
-                  'Cancel',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+              const Divider(height: 0.5, thickness: 0.5, color: Colors.grey),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          // Remove from source and filtered list
+                          final contactToRemove = _filteredContacts[index];
+                          _contacts.removeWhere(
+                            (c) => c['name'] == contactToRemove['name'],
+                          );
+                          // Update filtered list immediately or via method
+                          _filteredContacts.removeAt(index);
+                          // Re-filter if needed (optional but good for consistency)
+                          // _onSearchChanged();
+                        });
+                        Navigator.of(context).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            right: BorderSide(color: Colors.grey, width: 0.5),
+                          ),
+                        ),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Color(0xFFFF3B30), // iOS Red
+                            fontSize: 17,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Colors
+                                .black, // Default iOS action color often blue, but design looks grey/black
+                            fontSize: 17,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

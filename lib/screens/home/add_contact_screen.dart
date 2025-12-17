@@ -6,6 +6,7 @@ import '../../models/contact.dart';
 import '../../models/tag.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/tags_provider.dart';
+import '../../widgets/modals/select_tags_dialog.dart';
 
 class AddContactScreen extends ConsumerStatefulWidget {
   const AddContactScreen({super.key});
@@ -18,6 +19,8 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _tagSearchController = TextEditingController();
+  final FocusNode _tagFocusNode = FocusNode();
   PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'PH');
 
   List<Tag> _selectedTags = [];
@@ -27,55 +30,6 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
     setState(() {
       _selectedTags.removeWhere((t) => t.id == tag.id);
     });
-  }
-
-  void _showTagSelectionDialog() {
-    final availableTags = ref.read(tagsProvider);
-    // Filter out tags that are already selected
-    final unselectedTags = availableTags.where((tag) {
-      return !_selectedTags.any((selected) => selected.id == tag.id);
-    }).toList();
-
-    if (unselectedTags.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No available tags to add')));
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Select Tag'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: unselectedTags.length,
-              itemBuilder: (context, index) {
-                final tag = unselectedTags[index];
-                return ListTile(
-                  title: Text(tag.name),
-                  onTap: () {
-                    setState(() {
-                      _selectedTags.add(tag);
-                    });
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _saveContact() async {
@@ -286,7 +240,18 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 ElevatedButton(
-                  onPressed: _showTagSelectionDialog,
+                  onPressed: () async {
+                    final List<Tag>? result = await showDialog<List<Tag>>(
+                      context: context,
+                      builder: (context) =>
+                          SelectTagsDialog(initialSelectedTags: _selectedTags),
+                    );
+                    if (result != null) {
+                      setState(() {
+                        _selectedTags = result;
+                      });
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFBB03B),
                     foregroundColor: Colors.white,
@@ -295,18 +260,19 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
+                      horizontal: 16,
                       vertical: 8,
                     ),
+                    minimumSize: const Size(0, 32),
                   ),
                   child: const Text(
                     'Add Tag',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Container(
               width: double.infinity,
               constraints: const BoxConstraints(minHeight: 100),
@@ -316,27 +282,118 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                 border: Border.all(color: Colors.grey.shade300),
               ),
               padding: const EdgeInsets.all(16),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _selectedTags.map((tag) {
-                  return Chip(
-                    label: Text(
-                      tag.name,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey, // Grey text for tag
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Search Field (Top)
+                  RawAutocomplete<Tag>(
+                    focusNode: _tagFocusNode,
+                    textEditingController: _tagSearchController,
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return const Iterable<Tag>.empty();
+                      }
+                      final availableTags = ref.read(tagsProvider);
+                      return availableTags.where((tag) {
+                        return tag.name.toLowerCase().contains(
+                              textEditingValue.text.toLowerCase(),
+                            ) &&
+                            !_selectedTags.any((t) => t.id == tag.id);
+                      });
+                    },
+                    displayStringForOption: (Tag option) => option.name,
+                    onSelected: (Tag selection) {
+                      setState(() {
+                        _selectedTags.add(selection);
+                      });
+                      _tagSearchController.clear();
+                      _tagFocusNode.requestFocus();
+                    },
+                    fieldViewBuilder:
+                        (
+                          context,
+                          textEditingController,
+                          focusNode,
+                          onFieldSubmitted,
+                        ) {
+                          return TextField(
+                            controller: textEditingController,
+                            focusNode: focusNode,
+                            decoration: const InputDecoration(
+                              hintText: 'Search or add tags',
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.only(bottom: 8),
+                            ),
+                          );
+                        },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4.0,
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxHeight: 200,
+                              maxWidth: 300,
+                            ),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: options.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final Tag option = options.elementAt(index);
+                                return InkWell(
+                                  onTap: () {
+                                    onSelected(option);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(option.name),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                  const SizedBox(height: 8),
+
+                  // Selected Tags (Bottom)
+                  if (_selectedTags.isEmpty)
+                    const Text(
+                      'No tags selected',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _selectedTags.map((tag) {
+                        return Chip(
+                          label: Text(
+                            tag.name,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () => _removeTag(tag),
+                          backgroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                    deleteIcon: const Icon(Icons.close, size: 16),
-                    onDeleted: () => _removeTag(tag),
-                    backgroundColor: Colors.grey[200],
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: Colors.grey.shade300),
-                    ),
-                  );
-                }).toList(),
+                ],
               ),
             ),
             const SizedBox(height: 32),
@@ -385,6 +442,8 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _phoneController.dispose();
+    _tagSearchController.dispose();
+    _tagFocusNode.dispose();
     super.dispose();
   }
 }

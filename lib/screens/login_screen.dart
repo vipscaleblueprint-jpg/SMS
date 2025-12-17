@@ -63,20 +63,22 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkPermissions() async {
-    // Request Phone permission via MobileNumber plugin logic
-    // Note: On newer Android versions, getting the phone number is restricted.
-    // This adds the permission request flow.
+    // Request all necessary permissions
+    await [
+      Permission.sms,
+      Permission.contacts,
+      Permission.phone,
+      Permission.notification,
+    ].request();
+
+    // Specific check for MobileNumber plugin (if needed for SIM extraction)
     try {
       if (!await MobileNumber.hasPhonePermission) {
         await MobileNumber.requestPhonePermission;
       }
     } catch (e) {
-      // Handle or ignore platform errors (e.g. simulator)
       debugPrint('Error checking mobile number permission: $e');
     }
-
-    // Request SMS permission
-    await Permission.sms.request();
   }
 
   Future<void> _login() async {

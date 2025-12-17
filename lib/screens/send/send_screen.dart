@@ -1,30 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../services/sms_service.dart';
-import '../../providers/contacts_provider.dart';
+import 'package:intl/intl.dart';
+import '../../widgets/list/dropdown-contacts.dart';
+import '../../providers/send_message_provider.dart';
 
-class Message {
-  final String id;
-  final String text;
-  final DateTime timestamp;
-  int currentSent;
-  final int totalToSend;
-  bool isStopButtonVisible;
-  bool isCanceled;
-  bool isCompleted; // Add isCompleted
-
-  Message({
-    required this.id,
-    required this.text,
-    required this.timestamp,
-    this.currentSent = 0,
-    this.totalToSend = 1200, // Updated mock total
-    this.isStopButtonVisible = false,
-    this.isCanceled = false,
-    this.isCompleted = false,
-  });
-}
+// Message class moved to provider
 
 class SendScreen extends ConsumerStatefulWidget {
   const SendScreen({super.key});
@@ -36,27 +17,22 @@ class SendScreen extends ConsumerStatefulWidget {
 class _SendScreenState extends ConsumerState<SendScreen> {
   final TextEditingController _recipientController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
-  final List<Message> _messages = [];
-  final Map<String, StreamSubscription> _subscriptions =
-      {}; // Track active streams
+  // Recipient dropdown state managed by DropdownContacts now
+  final FocusNode _recipientFocusNode = FocusNode();
 
-  // Chip state
-
-  @override
   void dispose() {
     _recipientController.dispose();
     _messageController.dispose();
-    // Cancel all subscriptions
-    for (var sub in _subscriptions.values) {
-      sub.cancel();
-    }
+    _recipientFocusNode.dispose();
+    // Subscriptions handled in provider
     super.dispose();
   }
 
   Future<void> _sendMessage() async {
-    final smsService = SmsService();
-    final granted = await smsService.requestPermissions();
-    if (granted != true) {
+    final notifier = ref.read(sendMessageProvider.notifier);
+    final granted = await notifier.requestPermissions();
+
+    if (!granted) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -67,93 +43,124 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     }
 
     final text = _messageController.text;
-    if (text.trim().isEmpty) return;
-
-    // 1. Gather Recipients
-    final List<String> targetPhoneNumbers = [];
-
-    // Check for manual entry
     final manualRecipient = _recipientController.text.trim();
-    if (manualRecipient.isNotEmpty) {
-      targetPhoneNumbers.add(manualRecipient);
-    }
+    final sendState = ref.read(sendMessageProvider);
 
-    // Gather all contacts from DB
-    final contacts = ref.read(contactsProvider);
-    targetPhoneNumbers.addAll(contacts.map((c) => c.phone));
-
-    // De-duplicate
-    final uniqueRecipients = targetPhoneNumbers.toSet().toList();
-
-    if (uniqueRecipients.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No recipients selected/found.')),
-      );
+    // Validation
+    if (text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a message.')));
       return;
     }
 
-    final newMessage = Message(
-      id: DateTime.now().toString(),
+    if (sendState.selectedContactIds.isEmpty &&
+        sendState.selectedTagIds.isEmpty &&
+        manualRecipient.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No recipients selected.')));
+      return;
+    }
+
+    // Show Dialog for Schedule or Instant
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Send Message'),
+          content: const Text('When would you like to send this message?'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                // Save the main context before closing dialog
+                final mainContext = context;
+                Navigator.of(dialogContext).pop();
+
+                // Use the saved context for pickers
+                if (!mounted) return;
+
+                DateTime? pickedDate = await showDatePicker(
+                  context: mainContext,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+
+                if (pickedDate != null && mounted) {
+                  TimeOfDay? pickedTime = await showTimePicker(
+                    context: mainContext,
+                    initialTime: TimeOfDay.now(),
+                  );
+
+                  if (pickedTime != null && mounted) {
+                    final scheduledTime = DateTime(
+                      pickedDate.year,
+                      pickedDate.month,
+                      pickedDate.day,
+                      pickedTime.hour,
+                      pickedTime.minute,
+                    );
+                    _executeSend(
+                      text,
+                      manualRecipient,
+                      instant: false,
+                      scheduledTime: scheduledTime,
+                    );
+                  }
+                }
+              },
+              child: const Text('Schedule'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _executeSend(text, manualRecipient, instant: true);
+              },
+              child: const Text('Instant'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _executeSend(
+    String text,
+    String manualRecipient, {
+    bool instant = true,
+    DateTime? scheduledTime,
+  }) async {
+    final notifier = ref.read(sendMessageProvider.notifier);
+    await notifier.sendBatch(
       text: text,
-      timestamp: DateTime.now(),
-      currentSent: 0,
-      totalToSend: uniqueRecipients.length,
-    );
-
-    setState(() {
-      _messages.add(newMessage);
-      _messageController.clear();
-      // Optional: Clear recipient field if used? Maybe keep it.
-    });
-
-    // 2. Start Sending via Service
-    final stream = smsService.sendBatchSms(
-      recipients: uniqueRecipients,
-      message: text,
-      delay: const Duration(milliseconds: 1000), // 1 sec delay for safety
-    );
-
-    _subscriptions[newMessage.id] = stream.listen(
-      (count) {
+      manualRecipient: manualRecipient,
+      instant: instant,
+      scheduledTime: scheduledTime,
+      onError: (error) {
         if (!mounted) return;
-        setState(() {
-          newMessage.currentSent = count;
-          if (newMessage.currentSent >= newMessage.totalToSend) {
-            newMessage.isCompleted = true;
-            _subscriptions[newMessage.id]?.cancel();
-            _subscriptions.remove(newMessage.id);
-          }
-        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $error')));
       },
-      onError: (e) {
-        debugPrint("Error sending batch: $e");
-      },
-      onDone: () {
+      onRecipientsEmpty: () {
         if (!mounted) return;
-        setState(() {
-          // Ensure marked complete if stream finishes
-          if (newMessage.currentSent < newMessage.totalToSend) {
-            // Maybe some failed?
-            // For now, let's assume done means done.
-          }
-          newMessage.isCompleted = true;
-          _subscriptions.remove(newMessage.id);
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No recipients selected.')),
+        );
       },
     );
+
+    _messageController.clear();
+    notifier.clearRecipients();
+    FocusScope.of(context).unfocus();
   }
 
-  void _toggleStopButton(int index) {
-    if (_messages[index].isCanceled || _messages[index].isCompleted)
-      return; // Cannot stop if canceled or done
-    setState(() {
-      // Toggle the specific message's stop button visibility
-      _messages[index].isStopButtonVisible =
-          !_messages[index].isStopButtonVisible;
-    });
+  void _toggleStopButton(String id) {
+    ref.read(sendMessageProvider.notifier).toggleStopButton(id);
   }
 
-  void _showStopConfirmationDialog(int index) {
+  void _showStopConfirmationDialog(String id) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -176,14 +183,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             const Divider(height: 1, thickness: 1),
             InkWell(
               onTap: () {
-                setState(() {
-                  final msg = _messages[index];
-                  msg.isCanceled = true;
-                  msg.isStopButtonVisible = false;
-                  // Cancel the subscription if active
-                  _subscriptions[msg.id]?.cancel();
-                  _subscriptions.remove(msg.id);
-                });
+                ref.read(sendMessageProvider.notifier).stopSending(id);
                 Navigator.of(context).pop();
               },
               child: Container(
@@ -223,10 +223,13 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     );
   }
 
+  // Dropdown methods removed (moved to DropdownContacts)
+
   @override
   Widget build(BuildContext context) {
-    // Ensure contacts are loaded
-    ref.watch(contactsProvider);
+    // Watch state
+    final sendState = ref.watch(sendMessageProvider);
+    final messages = sendState.messages;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,44 +250,19 @@ class _SendScreenState extends ConsumerState<SendScreen> {
               ),
               const SizedBox(height: 16),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _recipientController,
-                      decoration: const InputDecoration(
-                        hintText: 'Recipient',
-                        hintStyle: TextStyle(color: Colors.grey, fontSize: 16),
-                        enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.grey),
-                        ),
-                        contentPadding: EdgeInsets.only(bottom: 8),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      // TODO: Implement add recipient logic
-                    },
-                    icon: Container(
-                      decoration: const BoxDecoration(
-                        color: Color(
-                          0xFFE0E0E0,
-                        ), // Light grey for the + button circle
-                        shape: BoxShape.circle,
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
+              DropdownContacts(
+                controller: _recipientController,
+                focusNode: _recipientFocusNode,
+                selectedContactIds: sendState.selectedContactIds,
+                selectedTagIds: sendState.selectedTagIds,
+                onContactSelected: (contact) {
+                  ref
+                      .read(sendMessageProvider.notifier)
+                      .toggleContact(contact.contact_id);
+                },
+                onTagSelected: (tag) {
+                  ref.read(sendMessageProvider.notifier).toggleTag(tag.id);
+                },
               ),
             ],
           ),
@@ -295,13 +273,13 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           child: Container(
             color: const Color(0xFFE0E0E0), // Light grey placeholder
             width: double.infinity,
-            child: _messages.isEmpty
+            child: messages.isEmpty
                 ? const SizedBox.shrink()
                 : ListView.builder(
                     padding: const EdgeInsets.all(20),
-                    itemCount: _messages.length,
+                    itemCount: messages.length,
                     itemBuilder: (context, index) {
-                      final msg = _messages[index];
+                      final msg = messages[index];
                       // Display nicely with time formatting
                       final timeStr =
                           "${msg.timestamp.hour}:${msg.timestamp.minute.toString().padLeft(2, '0')} ${msg.timestamp.hour >= 12 ? 'pm' : 'am'}";
@@ -309,7 +287,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
                         child: GestureDetector(
-                          onLongPress: () => _toggleStopButton(index),
+                          onLongPress: () => _toggleStopButton(msg.id),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
@@ -338,13 +316,38 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    Text(
-                                      timeStr,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade500,
+                                    // Show scheduled time if available, otherwise show sent time
+                                    if (msg.scheduledTime != null)
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Scheduled for: ${DateFormat('MMM dd, yyyy hh:mm a').format(msg.scheduledTime!)}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.orange.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Created: $timeStr',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      Text(
+                                        timeStr,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade500,
+                                        ),
                                       ),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -359,7 +362,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                                       height: 32,
                                       child: ElevatedButton(
                                         onPressed: () =>
-                                            _showStopConfirmationDialog(index),
+                                            _showStopConfirmationDialog(msg.id),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color(
                                             0xFFFF5252,

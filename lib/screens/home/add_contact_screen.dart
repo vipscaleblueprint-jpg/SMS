@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 import '../../models/contact.dart';
 import '../../models/tag.dart';
 import '../../providers/contacts_provider.dart';
@@ -17,6 +18,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'PH');
 
   List<Tag> _selectedTags = [];
   bool _isEditing = false;
@@ -79,7 +81,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   Future<void> _saveContact() async {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
-    final phone = _phoneController.text.trim();
+    final phone = _phoneNumber.phoneNumber ?? '';
 
     if (firstName.isEmpty || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,6 +89,8 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
       );
       return;
     }
+
+    // Removed phone validation - accept any format
 
     final contact = Contact(
       contact_id: const Uuid().v4(),
@@ -228,48 +232,47 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
             ),
             const SizedBox(height: 12),
             Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        right: BorderSide(color: Colors.grey.shade300),
-                      ),
-                    ),
-                    child: const Text(
-                      'Sim 1',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+              child: InternationalPhoneNumberInput(
+                onInputChanged: (PhoneNumber number) {
+                  _phoneNumber = number;
+                },
+                selectorConfig: const SelectorConfig(
+                  selectorType: PhoneInputSelectorType.BOTTOM_SHEET,
+                  useBottomSheetSafeArea: true,
+                ),
+                ignoreBlank: false,
+                autoValidateMode: AutovalidateMode.disabled,
+                selectorTextStyle: const TextStyle(color: Colors.black),
+                initialValue: _phoneNumber,
+                textFieldController: _phoneController,
+                formatInput: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: true,
+                  decimal: true,
+                ),
+                textAlign: TextAlign.start,
+                textAlignVertical: TextAlignVertical.center,
+                inputDecoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText: 'Phone Number',
+                  contentPadding: EdgeInsets.only(
+                    bottom: 12,
+                  ), // Adjust padding to center vertically with icon
+                  isDense: false,
+                ),
+                searchBoxDecoration: InputDecoration(
+                  labelText: 'Search by Country Name or Dial Code',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
-                  Expanded(
-                    child: TextField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      style: const TextStyle(
-                        color: Color(0xFFFBB03B),
-                        fontWeight: FontWeight.bold,
-                      ), // Yellow text
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 24),

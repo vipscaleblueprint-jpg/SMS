@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:csv/csv.dart';
+import 'dart:convert'; // Added for safer decoding
 import 'dart:io';
 import 'package:flutter_contacts/flutter_contacts.dart' as flutter_contacts;
 import 'package:permission_handler/permission_handler.dart';
@@ -10,6 +10,7 @@ import '../../widgets/list/contacts_list.dart';
 import '../../widgets/list/tags_list.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/tags_provider.dart';
+import '../../services/csv_service.dart';
 import '../../models/contact.dart';
 import '../../models/tag.dart';
 import 'settings_screen.dart';
@@ -95,142 +96,86 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       debugPrint('🔵 Starting CSV import...');
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['csv'],
+        allowedExtensions: ['csv', 'txt'],
+        withData:
+            true, // Request file data in memory for Android 10+ support where path might fail
       );
 
-      if (result != null && result.files.first.path != null) {
-        final file = File(result.files.first.path!);
-        debugPrint('🔵 CSV file selected: ${file.path}');
+      if (result != null) {
+        String csvString = '';
+        final fileParams = result.files.first;
 
-        final csvString = await file.readAsString();
-        debugPrint('🔵 CSV file read, length: ${csvString.length} characters');
+        // Try bytes first if available (reliable for Android URI schemes)
+        if (fileParams.bytes != null) {
+          debugPrint(
+            '🔵 Reading valid bytes from memory (Size: ${fileParams.bytes!.length})',
+          );
+          try {
+            csvString = utf8.decode(fileParams.bytes!);
+          } catch (e) {
+            debugPrint(
+              '⚠️ UTF-8 decode failed, falling back to simple char codes',
+            );
+            csvString = String.fromCharCodes(fileParams.bytes!);
+          }
+        } else if (fileParams.path != null) {
+          // Fallback to path
+          final file = File(fileParams.path!);
+          debugPrint('🔵 Reading from file path: ${file.path}');
+          csvString = await file.readAsString();
+        } else {
+          throw Exception(
+            'Could not retrieve file content (No path or bytes).',
+          );
+        }
 
-        // Parse CSV
-        final List<List<dynamic>> csvData = const CsvToListConverter().convert(
-          csvString,
-        );
-        debugPrint('🔵 CSV parsed, total rows: ${csvData.length}');
+        final csvService = CsvService();
+        final contacts = csvService.parseCsvContent(csvString);
 
-        if (csvData.isEmpty) {
-          debugPrint('🔴 CSV file is empty');
+        debugPrint('🔵 Service parsed ${contacts.length} potential contacts');
+
+        if (contacts.isEmpty) {
+          debugPrint('🔴 No contacts found by CsvService');
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('CSV file is empty')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'No valid contacts found. Please check CSV headers (First Name, Phone).',
+                ),
+              ),
+            );
           }
           return;
         }
 
-        // Print header row for verification
-        if (csvData.isNotEmpty) {
-          debugPrint('🔵 CSV Header: ${csvData[0]}');
-        }
-
         int importedCount = 0;
         int skippedCount = 0;
-        // Skip header row, start from index 1
-        // CSV format: Contact Id, First Name, Last Name, Name, Phone, Email, Created, Last Activity, Tags
-        debugPrint('🔵 Processing ${csvData.length - 1} data rows...');
 
-        for (int i = 1; i < csvData.length; i++) {
-          final row = csvData[i];
-          debugPrint('🔵 Row $i: $row (length: ${row.length})');
-
-          if (row.length >= 5) {
-            // Extract ALL possible data from CSV columns
-            // ignore: unused_local_variable
-            final _csvContactId = row.length > 0
-                ? row[0].toString().trim()
-                : ''; // Not used - provider generates new IDs
-            final firstName = row.length > 1 ? row[1].toString().trim() : '';
-            final lastName = row.length > 2 ? row[2].toString().trim() : '';
-            // ignore: unused_local_variable
-            final _fullName = row.length > 3
-                ? row[3].toString().trim()
-                : ''; // Not used - we use first/last separately
-            final phone = row.length > 4 ? row[4].toString().trim() : '';
-            final email = row.length > 5 ? row[5].toString().trim() : '';
-            final createdStr = row.length > 6 ? row[6].toString().trim() : '';
-            // ignore: unused_local_variable
-            final _lastActivityStr = row.length > 7
-                ? row[7].toString().trim()
-                : ''; // Not in Contact model
-            final tagsStr = row.length > 8
-                ? row[8].toString().trim()
-                : ''; // Parse and associate tags
-
-            debugPrint(
-              '🔵 Extracted - FirstName: "$firstName", LastName: "$lastName", Phone: "$phone", Email: "$email", Tags: "$tagsStr"',
-            );
-
-            // Parse created date if available, otherwise use current time
-            DateTime createdDate = DateTime.now();
-            if (createdStr.isNotEmpty) {
+        for (final contact in contacts) {
+          // Basic validation
+          if (contact.phone.isNotEmpty &&
+              (contact.first_name.isNotEmpty || contact.last_name.isNotEmpty)) {
+            // Ensure tags exist in DB
+            List<Tag> finalTags = [];
+            for (var t in contact.tags) {
               try {
-                createdDate = DateTime.parse(createdStr);
-                debugPrint('🔵 Parsed created date: $createdDate');
+                final tag = await ref
+                    .read(tagsProvider.notifier)
+                    .getOrCreateTag(t.name);
+                finalTags.add(tag);
               } catch (e) {
-                debugPrint('⚠️ Failed to parse date "$createdStr": $e');
-                // If parsing fails, use current time
-                createdDate = DateTime.now();
+                debugPrint('⚠️ Error processing tag ${t.name}: $e');
               }
             }
 
-            // Parse tags from CSV (comma-separated)
-            List<Tag> contactTags = [];
-            if (tagsStr.isNotEmpty) {
-              final tagNames = tagsStr
-                  .split(',')
-                  .map((t) => t.trim())
-                  .where((t) => t.isNotEmpty)
-                  .toList();
-              debugPrint('🔵 Found ${tagNames.length} tags: $tagNames');
+            final newContact = contact.copyWith(tags: finalTags);
 
-              for (final tagName in tagNames) {
-                try {
-                  debugPrint('🔵 Creating/finding tag: "$tagName"');
-                  final tag = await ref
-                      .read(tagsProvider.notifier)
-                      .getOrCreateTag(tagName);
-                  contactTags.add(tag);
-                  debugPrint('✅ Tag added: ${tag.name} (${tag.id})');
-                } catch (e) {
-                  // Skip tag if there's an error
-                  debugPrint('🔴 Error creating tag "$tagName": $e');
-                }
-              }
-            }
-
-            // Validate required fields
-            if (firstName.isNotEmpty && phone.isNotEmpty) {
-              debugPrint('✅ Validation passed for: $firstName $lastName');
-              final contact = Contact(
-                contact_id:
-                    '', // Will be generated by provider (not using csvContactId)
-                first_name: firstName,
-                last_name: lastName,
-                phone: phone,
-                email: email.isNotEmpty ? email : null,
-                created: createdDate,
-                tags: contactTags,
-              );
-
-              debugPrint('🔵 Adding contact to database...');
-              await ref.read(contactsProvider.notifier).addContact(contact);
-              importedCount++;
-              debugPrint(
-                '✅ Contact added successfully! Total imported: $importedCount',
-              );
-            } else {
-              skippedCount++;
-              debugPrint(
-                '⚠️ Row $i skipped - Missing required fields (firstName: "$firstName", phone: "$phone")',
-              );
-            }
+            await ref.read(contactsProvider.notifier).addContact(newContact);
+            importedCount++;
           } else {
             skippedCount++;
             debugPrint(
-              '⚠️ Row $i skipped - Insufficient columns (${row.length} < 5)',
+              '⚠️ Skipped contact: Missing Name or Phone. Name: "${contact.first_name} ${contact.last_name}", Phone: "${contact.phone}"',
             );
           }
         }

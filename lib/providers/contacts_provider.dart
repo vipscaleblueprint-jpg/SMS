@@ -41,8 +41,7 @@ class ContactsNotifier extends Notifier<List<Contact>> {
   // =========================
 
   Future<void> updateContact(Contact contact) async {
-    // SQLite uses REPLACE → insert again
-    await _db.insertContact(contact);
+    await _db.updateContact(contact);
     await _loadContacts();
   }
 
@@ -50,8 +49,19 @@ class ContactsNotifier extends Notifier<List<Contact>> {
   // DELETE
   // =========================
 
-  Future<void> removeContact(String id) async {
+  Future<void> deleteContact(String id) async {
     await _db.deleteContact(id);
+    await _loadContacts();
+  }
+
+  Future<void> removeContact(String id) async {
+    await deleteContact(id);
+  }
+
+  Future<void> deleteContacts(List<String> ids) async {
+    for (final id in ids) {
+      await _db.deleteContact(id);
+    }
     await _loadContacts();
   }
 }

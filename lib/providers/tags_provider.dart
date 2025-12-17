@@ -52,6 +52,14 @@ class TagsNotifier extends Notifier<List<Tag>> {
     await _loadTags();
   }
 
+  /// Remove multiple tags
+  Future<void> deleteTags(List<String> ids) async {
+    for (final id in ids) {
+      await _db.deleteTag(id);
+    }
+    await _loadTags();
+  }
+
   /// Get tag by id (helper)
   Tag? getById(String id) {
     try {

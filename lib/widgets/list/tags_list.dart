@@ -17,6 +17,9 @@ class _TagsListState extends ConsumerState<TagsList> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -37,6 +40,73 @@ class _TagsListState extends ConsumerState<TagsList> {
     );
   }
 
+  void _toggleSelectionMode(String? initialId) {
+    setState(() {
+      if (_isSelectionMode) {
+        _isSelectionMode = false;
+        _selectedIds.clear();
+      } else {
+        _isSelectionMode = true;
+        if (initialId != null) {
+          _selectedIds.add(initialId);
+        }
+      }
+    });
+  }
+
+  void _toggleItemSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+        if (_selectedIds.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final idsToDelete = _selectedIds.toList();
+    if (idsToDelete.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete ${idsToDelete.length} Tags?'),
+        content: const Text(
+          'Are you sure you want to delete the selected tags? This will remove them from all contacts.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await ref.read(tagsProvider.notifier).deleteTags(idsToDelete);
+      setState(() {
+        _isSelectionMode = false;
+        _selectedIds.clear();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Tags deleted')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tags = ref.watch(tagsProvider);
@@ -54,46 +124,96 @@ class _TagsListState extends ConsumerState<TagsList> {
       child: Column(
         children: [
           // ===========================
-          // SEARCH BAR
+          // TOOLBAR (Search or Actions)
           // ===========================
-          TextField(
-            controller: _searchController,
-            onChanged: (value) => setState(() => _searchQuery = value),
-            decoration: InputDecoration(
-              hintText: 'Search tags...',
-              prefixIcon: const Icon(Icons.search, color: Colors.grey),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 0,
-                horizontal: 16,
+          if (_isSelectionMode)
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              color: const Color(0xFFFBB03B).withOpacity(0.1),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => _toggleSelectionMode(null),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_selectedIds.length} Selected',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: _deleteSelected,
+                  ),
+                ],
               ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+            )
+          else
+            TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              decoration: InputDecoration(
+                hintText: 'Search tags...',
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 16,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
+
+          if (!_isSelectionMode)
+            const SizedBox(height: 24)
+          else
+            const SizedBox(height: 8),
 
           // ===========================
           // TABLE HEADERS
           // ===========================
-          // ===========================
-          // TABLE HEADERS
-          // ===========================
-          const Row(
+          Row(
             children: [
-              Expanded(
+              if (_isSelectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12.0),
+                  child: Checkbox(
+                    value:
+                        _selectedIds.isNotEmpty &&
+                        _selectedIds.length == filteredTags.length,
+                    onChanged: (val) {
+                      if (val == true) {
+                        setState(() {
+                          _selectedIds.addAll(filteredTags.map((t) => t.id));
+                        });
+                      } else {
+                        setState(() {
+                          _selectedIds.clear();
+                        });
+                      }
+                    },
+                  ),
+                ),
+
+              const Expanded(
                 flex: 3,
                 child: Text(
                   'Tags',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
-              Expanded(
+              const Expanded(
                 flex: 2,
                 child: Text(
                   'Contacts',
@@ -101,11 +221,12 @@ class _TagsListState extends ConsumerState<TagsList> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
-              Expanded(
-                // Actions column (fixed width or flex)
-                flex: 2,
-                child: SizedBox(), // Empty header for actions
-              ),
+              if (!_isSelectionMode)
+                const Expanded(
+                  // Actions column (fixed width or flex)
+                  flex: 2,
+                  child: SizedBox(), // Empty header for actions
+                ),
             ],
           ),
           const Divider(height: 1),
@@ -133,66 +254,113 @@ class _TagsListState extends ConsumerState<TagsList> {
                           .where((c) => c.tags.any((t) => t.id == tag.id))
                           .length;
 
-                      return Row(
-                        children: [
-                          // Tag Name
-                          Expanded(
-                            flex: 3,
-                            child: Text(
-                              tag.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.black87,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                      final isSelected = _selectedIds.contains(tag.id);
+
+                      return InkWell(
+                        onTap: () {
+                          if (_isSelectionMode) {
+                            _toggleItemSelection(tag.id);
+                          } else {
+                            // Maybe open details? But edit is separate currently
+                          }
+                        },
+                        onLongPress: () {
+                          if (!_isSelectionMode) {
+                            _toggleSelectionMode(tag.id);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFFFBB03B).withOpacity(0.05)
+                                : null,
+                            borderRadius: BorderRadius.circular(8),
+                            border: isSelected
+                                ? Border.all(
+                                    color: const Color(
+                                      0xFFFBB03B,
+                                    ).withOpacity(0.3),
+                                  )
+                                : null,
                           ),
-                          // Count
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              count.toString(),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: count > 0
-                                    ? const Color(0xFFFBB03B)
-                                    : Colors.grey,
-                              ),
-                            ),
-                          ),
-                          // Actions
-                          Expanded(
-                            flex: 2,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 20,
-                                    color: Colors.grey,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            children: [
+                              if (_isSelectionMode)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 12.0),
+                                  child: Checkbox(
+                                    value: isSelected,
+                                    activeColor: const Color(0xFFFBB03B),
+                                    onChanged: (val) =>
+                                        _toggleItemSelection(tag.id),
                                   ),
-                                  onPressed: () => _showEditTagDialog(tag),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
                                 ),
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 20,
-                                    color: Colors.grey,
+
+                              // Tag Name
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  tag.name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  onPressed: () => _showDeleteTagDialog(tag),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
                                 ),
-                              ],
-                            ),
+                              ),
+                              // Count
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  count.toString(),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: count > 0
+                                        ? const Color(0xFFFBB03B)
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ),
+                              // Actions
+                              if (!_isSelectionMode)
+                                Expanded(
+                                  flex: 2,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 20,
+                                          color: Colors.grey,
+                                        ),
+                                        onPressed: () =>
+                                            _showEditTagDialog(tag),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 20,
+                                          color: Colors.grey,
+                                        ),
+                                        onPressed: () =>
+                                            _showDeleteTagDialog(tag),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
-                        ],
+                        ),
                       );
                     },
                   ),

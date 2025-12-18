@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../send/add_sms_screen.dart';
+import 'add_sms_screen.dart';
 import '../../providers/sms_provider.dart';
 import '../../providers/events_provider.dart';
 import '../../models/sms.dart';
@@ -147,7 +147,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFF1F1F1),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey.shade300),
             ),
@@ -156,7 +156,13 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
               children: [
                 // Event Actions Header with Toggle (Includes Date)
                 Container(
-                  color: const Color(0xFFF1F1F1),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
@@ -210,25 +216,77 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                   data: (smsList) {
                     // Sort all SMS by schedule_time
                     final sortedList = List<Sms>.from(smsList);
+                    final now = DateTime.now();
                     sortedList.sort((a, b) {
-                      final dateA =
-                          a.schedule_time ?? a.sentTimeStamps ?? DateTime.now();
-                      final dateB =
-                          b.schedule_time ?? b.sentTimeStamps ?? DateTime.now();
+                      final isDraftA =
+                          a.status == SmsStatus.draft &&
+                          a.schedule_time == null;
+                      final isDraftB =
+                          b.status == SmsStatus.draft &&
+                          b.schedule_time == null;
+
+                      // 1. Drafts > Not Draft
+                      if (isDraftA && !isDraftB) return -1;
+                      if (!isDraftA && isDraftB) return 1;
+
+                      if (isDraftA && isDraftB) {
+                        return (b.id ?? 0).compareTo(a.id ?? 0);
+                      }
+
+                      // 2. Event date closer to date now > event date
+                      final dateA = a.schedule_time ?? a.sentTimeStamps;
+                      final dateB = b.schedule_time ?? b.sentTimeStamps;
+
+                      if (dateA == null && dateB == null) return 0;
+                      if (dateA == null) return 1;
+                      if (dateB == null) return -1;
+
+                      final diffA = dateA.difference(now).abs();
+                      final diffB = dateB.difference(now).abs();
+
+                      int cmp = diffA.compareTo(diffB);
+                      if (cmp != 0) return cmp;
+
                       return dateA.compareTo(dateB);
                     });
 
                     if (sortedList.isEmpty) {
-                      return const SizedBox(height: 16);
+                      return const SizedBox(height: 0);
                     }
 
                     return ListView(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      children: sortedList
-                          .map((sms) => _buildSmsItem(sms))
-                          .toList(),
+                      padding: const EdgeInsets.symmetric(vertical: 0),
+                      children: sortedList.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final sms = entry.value;
+                        final isLast = index == sortedList.length - 1;
+
+                        bool nextIsDraft = false;
+                        if (!isLast) {
+                          final nextSms = sortedList[index + 1];
+                          nextIsDraft =
+                              nextSms.status == SmsStatus.draft &&
+                              nextSms.schedule_time == null;
+                        }
+
+                        bool prevIsDraft = false;
+                        if (index > 0) {
+                          final prevSms = sortedList[index - 1];
+                          prevIsDraft =
+                              prevSms.status == SmsStatus.draft &&
+                              prevSms.schedule_time == null;
+                        }
+
+                        return _buildSmsItem(
+                          sms,
+                          index,
+                          isLast,
+                          nextIsDraft,
+                          prevIsDraft,
+                        );
+                      }).toList(),
                     );
                   },
                   loading: () => const Padding(
@@ -238,57 +296,40 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
 
-                const Divider(height: 1),
-
-                // Add SMS Button
-                InkWell(
-                  onTap: () {
-                    DateTime? parsedEventDate;
-                    try {
-                      parsedEventDate = DateFormat(
-                        'MMM dd, yyyy hh:mm a',
-                      ).parse(widget.eventDate);
-                    } catch (e) {
-                      // print or handle error if needed
-                    }
-
-                    Navigator.of(context)
-                        .push(
-                          MaterialPageRoute(
-                            builder: (context) => AddSmsScreen(
-                              eventTitle: widget.eventTitle,
-                              eventId: widget.eventId,
-                              eventDate: parsedEventDate,
-                            ),
-                          ),
-                        )
-                        .then((_) {
-                          // Refreshes handled by provider watcher usually if invalidated, but explicit refresh ensures it
-                          void _ = ref.refresh(
-                            eventSmsProvider(widget.eventId),
-                          );
-                        });
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '+ Add SMS',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                // Add SMS Button removed from here
               ],
             ),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          DateTime? parsedEventDate;
+          try {
+            parsedEventDate = DateFormat(
+              'MMM dd, yyyy hh:mm a',
+            ).parse(widget.eventDate);
+          } catch (e) {
+            // print or handle error if needed
+          }
+
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder: (context) => AddSmsScreen(
+                    eventTitle: widget.eventTitle,
+                    eventId: widget.eventId,
+                    eventDate: parsedEventDate,
+                  ),
+                ),
+              )
+              .then((_) {
+                // Refreshes handled by provider watcher usually if invalidated, but explicit refresh ensures it
+                void _ = ref.refresh(eventSmsProvider(widget.eventId));
+              });
+        },
+        backgroundColor: const Color(0xFFFBB03B),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -322,7 +363,13 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
     );
   }
 
-  Widget _buildSmsItem(Sms sms) {
+  Widget _buildSmsItem(
+    Sms sms,
+    int index,
+    bool isLast,
+    bool nextIsDraft,
+    bool prevIsDraft,
+  ) {
     // Format date directly from sms data
     final dateStr = sms.schedule_time != null
         ? DateFormat('MMMM dd, yyyy hh:mm a').format(sms.schedule_time!)
@@ -338,7 +385,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
     // Container Decoration
     final decoration = isDraft
         ? const BoxDecoration(
-            color: Colors.transparent,
+            color: Colors.white,
             border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
           )
         : BoxDecoration(
@@ -356,11 +403,16 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
 
     // Margin/Padding - drafts have minimal spacing, pending/sent have card padding
     final margin = isDraft
-        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 0)
-        : const EdgeInsets.symmetric(horizontal: 16, vertical: 8);
+        ? const EdgeInsets.all(0)
+        : EdgeInsets.only(
+            top: (index == 0 || prevIsDraft) ? 16 : 8,
+            left: 16,
+            right: 16,
+            bottom: (isLast || nextIsDraft) ? 16 : 8,
+          );
 
     final padding = isDraft
-        ? const EdgeInsets.symmetric(vertical: 16, horizontal: 8)
+        ? const EdgeInsets.only(top: 16, left: 32, right: 32, bottom: 16)
         : const EdgeInsets.all(16);
 
     return InkWell(
@@ -411,9 +463,11 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                 if (!isDraft)
                   Icon(
                     Icons.check_circle,
-                    color: _isActionsEnabled
+                    color: sms.status == SmsStatus.sent
                         ? const Color(0xFFFBB03B)
                         : Colors.grey,
+                    // Original logic for reference:
+                    // color: _isActionsEnabled ? const Color(0xFFFBB03B) : Colors.grey,
                     size: 20,
                   ),
               ],

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/user_provider.dart';
 
 class WelcomeMessageScreen extends ConsumerStatefulWidget {
   const WelcomeMessageScreen({super.key});
@@ -13,14 +12,8 @@ class WelcomeMessageScreen extends ConsumerStatefulWidget {
 class _WelcomeMessageScreenState extends ConsumerState<WelcomeMessageScreen> {
   final TextEditingController _messageController = TextEditingController();
 
-  void _showProfileMenu() {
-    // Reusing the profile menu logic if needed
-  }
-
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userProvider);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -30,49 +23,6 @@ class _WelcomeMessageScreenState extends ConsumerState<WelcomeMessageScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: GestureDetector(
-              onTap: _showProfileMenu,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: const Color(0xFFFBB03B),
-                      radius: 16,
-                      backgroundImage: user.photoUrl != null
-                          ? NetworkImage(user.photoUrl!)
-                          : null,
-                      child: user.photoUrl == null
-                          ? const Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 20,
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      user.name,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: Column(
         children: [

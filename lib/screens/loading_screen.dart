@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/db/user_db_helper.dart';
 import 'login_screen.dart';
-import 'home/home_screen.dart';
+import 'home/contact_screen.dart';
 
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});

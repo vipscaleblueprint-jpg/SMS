@@ -39,7 +39,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _currentIndex = 0;
+  int _currentIndex = 1; // Default to Send (SMS) tab
 
   late final List<Widget> _pages;
 
@@ -60,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     });
 
-    _pages = [const CampaignsScreen(), ContactsPage(), const SendScreen()];
+    _pages = [ContactsPage(), const SendScreen(), const CampaignsScreen()];
   }
 
   Future<void> _checkPermissions() async {
@@ -98,16 +98,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.campaign),
-            label: 'Campaigns',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.contact_page_outlined),
             label: 'Contacts',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.send_outlined),
             label: 'Send',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.campaign),
+            label: 'Campaigns',
           ),
         ],
       ),

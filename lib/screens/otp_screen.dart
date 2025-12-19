@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
-import 'home/home_screen.dart';
+import 'home/contact_screen.dart';
 import '../../models/user.dart';
 import '../../models/settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

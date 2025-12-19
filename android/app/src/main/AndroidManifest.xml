@@ -16,7 +16,7 @@
 
 
     <application
-        android:label="sms"
+        android:label="Localize"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

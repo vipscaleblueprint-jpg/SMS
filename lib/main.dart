@@ -1,15 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'screens/loading_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/home/settings_screen.dart';
 import 'screens/home/add_contact_screen.dart';
 
+import 'package:flutter/services.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AndroidAlarmManager.initialize();
+
+  // Set status bar to transparent with dark icons (light mode style)
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness:
+          Brightness.dark, // Dark icons for light background
+      statusBarBrightness: Brightness.light, // iOS light status bar
+    ),
+  );
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -28,7 +42,8 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const LoginScreen(),
+        '/': (context) => const LoadingScreen(),
+        '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
         '/signup': (context) => const SignupScreen(),
         '/settings': (context) => const SettingsScreen(),

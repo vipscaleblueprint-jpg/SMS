@@ -252,7 +252,7 @@ class _ContactsListState extends ConsumerState<ContactsList> {
                       contact.contact_id,
                     );
 
-                    return _ContactRow(
+                    return ContactRow(
                       contact: contact,
                       isSelectionMode: _isSelectionMode,
                       isSelected: isSelected,
@@ -284,7 +284,7 @@ class _ContactsListState extends ConsumerState<ContactsList> {
   }
 }
 
-class _ContactRow extends StatelessWidget {
+class ContactRow extends StatelessWidget {
   final Contact contact;
   final bool isSelectionMode;
   final bool isSelected;
@@ -292,7 +292,8 @@ class _ContactRow extends StatelessWidget {
   final VoidCallback onLongPress;
   final ValueChanged<bool?>? onSelectChange;
 
-  const _ContactRow({
+  const ContactRow({
+    super.key,
     required this.contact,
     required this.isSelectionMode,
     required this.isSelected,

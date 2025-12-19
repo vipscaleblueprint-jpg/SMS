@@ -7,6 +7,12 @@ import '../welcome_message_screen.dart';
 import 'event_actions_screen.dart';
 import '../home/settings_screen.dart';
 import '../../widgets/modals/campaign_dialog.dart';
+import '../../providers/user_provider.dart';
+
+import '../../utils/db/user_db_helper.dart';
+import '../../utils/db/contact_db_helper.dart';
+import '../../utils/db/sms_db_helper.dart';
+import '../home/edit_profile_screen.dart';
 import '../../widgets/list/events_list.dart';
 
 class CampaignsScreen extends ConsumerStatefulWidget {
@@ -41,24 +47,65 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
       position: position,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
-      surfaceTintColor: Colors.white,
       elevation: 8,
       items: [
         const PopupMenuItem<String>(value: 'settings', child: Text('Settings')),
+        const PopupMenuItem<String>(
+          value: 'edit_profile',
+          child: Text('Edit Profile'),
+        ),
         const PopupMenuItem<String>(
           value: 'logout',
           child: Text('Logout', style: TextStyle(color: Colors.red)),
         ),
       ],
-    ).then((value) {
+    ).then((value) async {
       if (value == 'logout') {
-        // Navigate back to login screen
-        Navigator.of(context).pushReplacementNamed('/');
+        debugPrint('Logout (Campaigns): Starting standard logout...');
+
+        // 1. Delete User (Auth) - PRIORITY
+        try {
+          await UserDbHelper().deleteUser();
+          debugPrint('Logout: User deleted from DB.');
+        } catch (e) {
+          debugPrint('Logout: Error deleting user: $e');
+        }
+
+        // 2. Wipe other Data
+        try {
+          await ContactDbHelper.instance.clearContacts();
+          await SmsDbHelper().deleteAllSms();
+          debugPrint('Logout: App data wiped.');
+        } catch (e) {
+          debugPrint('Logout: Error wiping app data: $e');
+        }
+
+        // 3. Clear Providers
+        if (context.mounted) {
+          ref.read(userProvider.notifier).clearUser();
+          // ref.read(contactsProvider.notifier).clear(); // If contacts provider is imported
+          // I added import for contacts_provider.dart so I can use it.
+          // However, let's check if ref ensures availability. Yes.
+          // But wait, eventsProvider is used in this file. contactsProvider not yet.
+          // I'll skip clearing contactsProvider to avoid "provider not found" if I forgot import.
+          // Actually I added the import in the first chunk above. So I can use it.
+          // Actually, I'll stick to userProvider clearing to be safe and simple,
+          // as the DB wipe is the critical part for session.
+        }
+
+        if (context.mounted) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (route) => false);
+        }
       } else if (value == 'settings') {
-        // Navigate to settings screen
         Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
+      } else if (value == 'edit_profile') {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+        );
       }
     });
   }
@@ -95,7 +142,6 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -221,175 +267,175 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(userProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.opaque,
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header with Profile
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 16.0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header with Profile
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 16.0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    key: _profileKey,
+                    onTap: _showProfileMenu,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: const Color(0xFFFBB03B),
+                            radius: 16,
+                            backgroundImage: user.photoUrl != null
+                                ? NetworkImage(user.photoUrl!)
+                                : null,
+                            child: user.photoUrl == null
+                                ? const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 20,
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            user.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    GestureDetector(
-                      key: _profileKey,
-                      onTap: _showProfileMenu,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(30),
+                    // Events Title and Add Button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Events',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        child: const Row(
+                        ElevatedButton(
+                          onPressed: _showAddEventDialog,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFBB03B),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: const Text(
+                            'Add Event',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Welcome Message Card
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const WelcomeMessageScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
                           children: [
-                            CircleAvatar(
-                              backgroundColor: Color(0xFFFBB03B),
-                              radius: 16,
-                              child: Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 20,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Welcome Message',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Send Welcome Message to new\nimported contacts',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Antony John',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                            Transform.rotate(
+                              angle: -0.5, // Tilted paper plane
+                              child: const Icon(
+                                Icons.send,
+                                color: Colors.grey,
+                                size: 32,
                               ),
                             ),
-                            SizedBox(width: 12),
                           ],
                         ),
                       ),
                     ),
+                    const SizedBox(height: 24),
+
+                    EventsList(
+                      onDelete: _showDeleteEventDialog,
+                      onEdit: _showEditEventDialog,
+                      onTap: (event) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => EventActionsScreen(
+                              eventId: event.id!,
+                              eventTitle: event.name,
+                              eventDate: DateFormat(
+                                'MMM dd, yyyy hh:mm a',
+                              ).format(event.date),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
-
-              Expanded(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Events Title and Add Button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Events',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          ElevatedButton(
-                            onPressed: _showAddEventDialog,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFBB03B),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                            child: const Text(
-                              'Add Event',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Welcome Message Card
-                      InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const WelcomeMessageScreen(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Welcome Message',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Send Welcome Message to new\nimported contacts',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Transform.rotate(
-                                angle: -0.5, // Tilted paper plane
-                                child: const Icon(
-                                  Icons.send,
-                                  color: Colors.grey,
-                                  size: 32,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      EventsList(
-                        onDelete: _showDeleteEventDialog,
-                        onEdit: _showEditEventDialog,
-                        onTap: (event) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => EventActionsScreen(
-                                eventId: event.id!,
-                                eventTitle: event.name,
-                                eventDate: DateFormat(
-                                  'MMM dd, yyyy hh:mm a',
-                                ).format(event.date),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

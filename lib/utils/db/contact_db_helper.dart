@@ -235,5 +235,6 @@ class ContactDbHelper {
     final db = await database;
     await db.delete('contact_tags');
     await db.delete('contacts');
+    await db.delete('tags');
   }
 }

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class WelcomeMessageScreen extends StatefulWidget {
+class WelcomeMessageScreen extends ConsumerStatefulWidget {
   const WelcomeMessageScreen({super.key});
 
   @override
-  State<WelcomeMessageScreen> createState() => _WelcomeMessageScreenState();
+  ConsumerState<WelcomeMessageScreen> createState() =>
+      _WelcomeMessageScreenState();
 }
 
-class _WelcomeMessageScreenState extends State<WelcomeMessageScreen> {
+class _WelcomeMessageScreenState extends ConsumerState<WelcomeMessageScreen> {
   final TextEditingController _messageController = TextEditingController();
 
   @override

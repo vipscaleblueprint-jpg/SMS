@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_number/mobile_number.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 import 'signup_screen.dart';
-import 'home/home_screen.dart';
+import 'otp_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,29 +14,69 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   bool _rememberMe = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _checkPermissions();
-  }
+  bool _isLoading = false;
 
-  Future<void> _checkPermissions() async {
-    // Request Phone permission via MobileNumber plugin logic
-    if (!await MobileNumber.hasPhonePermission) {
-      await MobileNumber.requestPhonePermission;
+  Future<void> _login() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter your email')));
+      return;
     }
-    // Request SMS permission
-    await Permission.sms.request();
-  }
 
-  void _login() {
-    // TODO: Implement actual login logic
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
-    );
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final url = Uri.parse(
+        'https://n8n.srv1151765.hstgr.cloud/webhook/sms/auth',
+      );
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic> && data['success'] == true) {
+          if (mounted) {
+            // Navigate to OTP Screen
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => OtpScreen(email: email)),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Failed to send OTP')));
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Login failed: ${response.statusCode}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _navigateToSignUp() {
@@ -93,51 +134,20 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Password Field
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  hintText: 'Enter your password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Remember Me & Forgot Password
+              // Remember Me Checkbox
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _rememberMe,
-                        onChanged: (value) {
-                          setState(() {
-                            _rememberMe = value ?? false;
-                          });
-                        },
-                        activeColor: Colors.amber,
-                      ),
-                      const Text('Remember Me'),
-                    ],
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      // TODO: Forgot password
+                  Checkbox(
+                    value: _rememberMe,
+                    onChanged: (value) {
+                      setState(() {
+                        _rememberMe = value ?? false;
+                      });
                     },
-                    child: const Text(
-                      'Forgot password?',
-                      style: TextStyle(color: Colors.amber),
-                    ),
+                    activeColor: Colors.amber,
                   ),
+                  const Text('Remember Me'),
                 ],
               ),
               const SizedBox(height: 24),
@@ -154,73 +164,52 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Login',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Login',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
               const SizedBox(height: 24),
 
               const Center(
                 child: Text(
-                  'Or\nSign in with',
+                  'Or',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Google Sign In Button
+              // Sign Up Button (Replacing Google Sign In)
               OutlinedButton(
-                onPressed: () {
-                  // TODO: Google Sign In
-                },
+                onPressed: _navigateToSignUp,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
-                  side: const BorderSide(color: Colors.grey),
+                  side: const BorderSide(color: Colors.amber),
+                  foregroundColor: Colors.amber,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Simple G icon since we don't have assets configured yet
-                    const Text(
-                      'G',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Sign in with google',
-                      style: TextStyle(fontSize: 16, color: Colors.black),
-                    ),
-                  ],
+                child: const Text(
+                  'Sign Up',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-              const SizedBox(height: 24),
 
-              // Sign Up Link
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Don't have an account? "),
-                  GestureDetector(
-                    onTap: _navigateToSignUp,
-                    child: const Text(
-                      'Sign up',
-                      style: TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),

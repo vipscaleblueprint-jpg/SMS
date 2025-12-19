@@ -10,7 +10,8 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
-  late TextEditingController _nameController;
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
   late TextEditingController _emailController;
   late TextEditingController _businessController;
   late TextEditingController _locationController;
@@ -19,7 +20,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   void initState() {
     super.initState();
     final user = ref.read(userProvider);
-    _nameController = TextEditingController(text: user.name);
+    final nameParts = user.name.split(' ');
+    String firstName = '';
+    String lastName = '';
+    if (nameParts.isNotEmpty) {
+      firstName = nameParts.first;
+      if (nameParts.length > 1) {
+        lastName = nameParts.sublist(1).join(' ');
+      }
+    }
+
+    _firstNameController = TextEditingController(text: firstName);
+    _lastNameController = TextEditingController(text: lastName);
     _emailController = TextEditingController(text: user.email);
     _businessController = TextEditingController(text: user.businessName);
     _locationController = TextEditingController(text: user.location);
@@ -27,7 +39,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _businessController.dispose();
     _locationController.dispose();
@@ -35,10 +48,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   void _saveProfile() {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final fullName = lastName.isNotEmpty ? '$firstName $lastName' : firstName;
+
     ref
         .read(userProvider.notifier)
         .updateProfile(
-          name: _nameController.text,
+          name: fullName,
           email: _emailController.text,
           businessName: _businessController.text,
           location: _locationController.text,
@@ -138,15 +155,34 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Profile Name',
-                hintText: 'Enter your name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _firstNameController,
+                    decoration: InputDecoration(
+                      labelText: 'First Name',
+                      hintText: 'First Name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _lastNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Last Name',
+                      hintText: 'Last Name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             TextField(

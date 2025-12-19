@@ -55,11 +55,18 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
   bool _isRelativeUnitDropdownOpen = false;
 
   final FocusNode _bodyFocusNode = FocusNode();
+  final FocusNode _titleFocusNode = FocusNode(); // Add new FocusNode
+
   @override
   void initState() {
     super.initState();
     _relativeTimeValueController.addListener(() {
       setState(() {});
+    });
+
+    // Add listener to rebuild UI on focus change
+    _titleFocusNode.addListener(() {
+      if (mounted) setState(() {});
     });
 
     if (widget.smsToEdit != null) {
@@ -94,6 +101,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
     _bodyController.dispose();
     _relativeTimeValueController.dispose();
     _bodyFocusNode.dispose();
+    _titleFocusNode.dispose(); // Dispose new node
     super.dispose();
   }
 
@@ -293,10 +301,18 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                     ),
                     child: TextField(
                       controller: _titleController,
-                      decoration: const InputDecoration(
+                      focusNode: _titleFocusNode, // Attach focus node
+                      decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Enter title',
-                        contentPadding: EdgeInsets.symmetric(vertical: 12),
+                        hintStyle: TextStyle(
+                          color: const Color(
+                            0xFFB3B3B3,
+                          ).withOpacity(_titleFocusNode.hasFocus ? 0.5 : 1.0),
+                        ), // Conditional opacity
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
                       ),
                       style: const TextStyle(
                         fontSize: 14,

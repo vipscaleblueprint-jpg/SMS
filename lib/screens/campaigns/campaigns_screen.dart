@@ -5,6 +5,7 @@ import '../../models/events.dart';
 import '../../providers/events_provider.dart';
 import '../welcome_message_screen.dart';
 import 'event_actions_screen.dart';
+import 'scheduled_message_screen.dart';
 import '../home/settings_screen.dart';
 import '../../widgets/modals/campaign_dialog.dart';
 import '../../providers/user_provider.dart';
@@ -392,6 +393,60 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Send Welcome Message to new\nimported contacts',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Transform.rotate(
+                              angle: -0.5, // Tilted paper plane
+                              child: const Icon(
+                                Icons.send,
+                                color: Colors.grey,
+                                size: 32,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Scheduled Message Card
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const ScheduledMessageScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Scheduled Message',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Send messages every nth day of the\nmonth',
                                     style: TextStyle(
                                       color: Colors.grey[600],
                                       fontSize: 13,

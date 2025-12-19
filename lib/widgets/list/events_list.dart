@@ -225,7 +225,7 @@ class _EventsListState extends ConsumerState<EventsList> {
                       right: 48.0,
                     ), // Space for delete icon
                     child: Text(
-                      'Date',
+                      'Event Date',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -237,7 +237,7 @@ class _EventsListState extends ConsumerState<EventsList> {
                 const Expanded(
                   flex: 3,
                   child: Text(
-                    'Date',
+                    'Event Date',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                 ),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/contact.dart';
 import '../utils/db/contact_db_helper.dart';
@@ -34,6 +36,38 @@ class ContactsNotifier extends Notifier<List<Contact>> {
       await _db.insertContact(contact);
     }
     await _loadContacts();
+  }
+
+  Future<int> fetchAndSaveExternalContacts() async {
+    final response = await http.get(
+      Uri.parse(
+        'https://n8n.srv1151765.hstgr.cloud/webhook/2f19e860-892f-45ba-8143-96a0c420c71d',
+      ),
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      final List<Contact> fetchedContacts = data.map((item) {
+        return Contact(
+          contact_id: item['id'] as String,
+          first_name: item['first_name'] as String? ?? '',
+          last_name:
+              item['lsat_name'] as String? ??
+              '', // Note the 'lsat_name' typo in API
+          email: item['email'] as String?,
+          phone: item['phone'] as String? ?? '',
+          created: DateTime.now(),
+        );
+      }).toList();
+
+      for (final contact in fetchedContacts) {
+        await _db.insertContact(contact);
+      }
+      await _loadContacts();
+      return fetchedContacts.length;
+    } else {
+      throw Exception('Failed to fetch contacts: ${response.statusCode}');
+    }
   }
 
   // =========================

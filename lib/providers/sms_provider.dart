@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:another_telephony/telephony.dart' hide SmsStatus;
 import '../models/sms.dart';
 import '../utils/db/sms_db_helper.dart';
 import '../services/sms_service.dart';

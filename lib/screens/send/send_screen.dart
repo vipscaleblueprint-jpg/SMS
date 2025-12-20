@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/list/dropdown-contacts.dart';
 import '../../providers/send_message_provider.dart';
+import '../../providers/contacts_provider.dart';
 
 // Message class moved to provider
 
@@ -19,6 +20,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   final TextEditingController _messageController = TextEditingController();
   // Recipient dropdown state managed by DropdownContacts now
   final FocusNode _recipientFocusNode = FocusNode();
+  bool _isSyncing = false;
 
   void dispose() {
     _recipientController.dispose();
@@ -204,6 +206,28 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     FocusScope.of(context).unfocus();
   }
 
+  Future<void> _syncExternalContacts() async {
+    setState(() => _isSyncing = true);
+    try {
+      final count = await ref
+          .read(contactsProvider.notifier)
+          .fetchAndSaveExternalContacts();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Successfully synced $count contacts.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error syncing contacts: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
   void _toggleStopButton(String id) {
     ref.read(sendMessageProvider.notifier).toggleStopButton(id);
   }
@@ -289,13 +313,41 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'New mass text',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.normal,
-                  color: Colors.black,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'New mass text',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black,
+                    ),
+                  ),
+                  if (_isSyncing)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 12.0),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFFFBB03B),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      onPressed: _syncExternalContacts,
+                      tooltip: 'Sync Contacts from API',
+                      icon: const Icon(
+                        Icons.sync_rounded,
+                        color: Color(0xFFFBB03B),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
 

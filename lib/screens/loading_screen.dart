@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../utils/db/user_db_helper.dart';
 import 'login_screen.dart';
@@ -19,8 +20,26 @@ class _LoadingScreenState extends State<LoadingScreen> {
   }
 
   Future<void> _bootstrap() async {
+    // Request permissions first
+    await _requestPermissions();
     // Check Session
     await _checkSession();
+  }
+
+  Future<void> _requestPermissions() async {
+    // Defines the list of permissions to request
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.sms,
+      Permission.phone,
+      Permission.contacts,
+      Permission.scheduleExactAlarm,
+      Permission.notification, // Good practice for Android 13+
+    ].request();
+
+    // Log the results (optional: handle denied permissions if needed)
+    statuses.forEach((permission, status) {
+      debugPrint('Permission $permission: $status');
+    });
   }
 
   Future<void> _checkSession() async {

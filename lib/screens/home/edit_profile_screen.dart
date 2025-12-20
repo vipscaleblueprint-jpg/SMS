@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/user_provider.dart';
 
+import '../../utils/db/user_db_helper.dart';
+
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -47,20 +49,36 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.dispose();
   }
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     final fullName = lastName.isNotEmpty ? '$firstName $lastName' : firstName;
+    final email = _emailController.text.trim();
 
+    // Update Provider
     ref
         .read(userProvider.notifier)
         .updateProfile(
           name: fullName,
-          email: _emailController.text,
+          email: email,
           businessName: _businessController.text,
           location: _locationController.text,
         );
-    Navigator.of(context).pop();
+
+    // Persist to Storage
+    try {
+      final currentUser = await UserDbHelper().getUser();
+      if (currentUser != null) {
+        final updatedUser = currentUser.copyWith(name: fullName, email: email);
+        await UserDbHelper().insertUser(updatedUser);
+      }
+    } catch (e) {
+      debugPrint('Error saving profile: $e');
+    }
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override

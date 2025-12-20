@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:convert'; // Added for safer decoding
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_contacts/flutter_contacts.dart' as flutter_contacts;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:mobile_number/mobile_number.dart'; // Add import
+import 'package:mobile_number/mobile_number.dart';
 import '../../widgets/modals/add_tag_dialog.dart';
 import '../../widgets/list/contacts_list.dart';
 import '../../widgets/list/tags_list.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/tags_provider.dart';
-import '../../providers/user_provider.dart'; // Import UserProvider
+import '../../providers/user_provider.dart';
 import '../../services/csv_service.dart';
 import '../../models/contact.dart';
 import '../../models/tag.dart';
-import '../../utils/db/user_db_helper.dart'; // Import UserDbHelper
+import '../../utils/db/user_db_helper.dart';
 import '../../utils/db/contact_db_helper.dart';
 import '../../utils/db/sms_db_helper.dart';
 import 'settings_screen.dart';
-import 'edit_profile_screen.dart'; // Import EditProfileScreen
+import 'edit_profile_screen.dart';
 import 'add_contact_screen.dart';
 import '../send/send_screen.dart';
 
@@ -39,16 +39,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _currentIndex = 1; // Default to Send (SMS) tab
+  int _currentIndex = 1;
 
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-    _checkPermissions(); // Request permissions on Home load
+    _checkPermissions();
 
-    // Initialize user provider with passed params if available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.userName != null) {
         ref
@@ -362,8 +361,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
         // 1. Delete User (Auth) - PRIORITY
         try {
-          final count = await UserDbHelper().deleteUser();
-          debugPrint('Logout: User deleted from DB. Rows affected: $count');
+          await UserDbHelper().deleteUser();
+          debugPrint('Logout: User deleted from DB.');
 
           // Verification
           final checkUser = await UserDbHelper().getUser();

@@ -21,6 +21,15 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   // Recipient dropdown state managed by DropdownContacts now
   final FocusNode _recipientFocusNode = FocusNode();
   bool _isSyncing = false;
+  bool _isFirstLoad = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncExternalContacts(silent: true);
+    });
+  }
 
   void dispose() {
     _recipientController.dispose();
@@ -206,24 +215,32 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     FocusScope.of(context).unfocus();
   }
 
-  Future<void> _syncExternalContacts() async {
+  Future<void> _syncExternalContacts({bool silent = false}) async {
+    if (_isSyncing) return;
     setState(() => _isSyncing = true);
     try {
       final count = await ref
           .read(contactsProvider.notifier)
           .fetchAndSaveExternalContacts();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Successfully synced $count contacts.')),
-      );
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Successfully synced $count contacts.')),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error syncing contacts: $e')));
+      if (!silent || !_isFirstLoad) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error syncing contacts: $e')));
+      }
     } finally {
       if (mounted) {
-        setState(() => _isSyncing = false);
+        setState(() {
+          _isSyncing = false;
+          _isFirstLoad = false;
+        });
       }
     }
   }

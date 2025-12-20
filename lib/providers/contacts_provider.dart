@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/contact.dart';
+import '../models/tag.dart';
 import '../utils/db/contact_db_helper.dart';
 
 class ContactsNotifier extends Notifier<List<Contact>> {
@@ -47,6 +48,14 @@ class ContactsNotifier extends Notifier<List<Contact>> {
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
+      final String tagId = "tag_new";
+      final Tag newTag = Tag(
+        id: tagId,
+        name: 'new',
+        created: DateTime.now(),
+        color: '#FF0000', // Example color: Red
+      );
+
       final List<Contact> fetchedContacts = data.map((item) {
         return Contact(
           contact_id: item['id'] as String,
@@ -57,6 +66,7 @@ class ContactsNotifier extends Notifier<List<Contact>> {
           email: item['email'] as String?,
           phone: item['phone'] as String? ?? '',
           created: DateTime.now(),
+          tags: [newTag],
         );
       }).toList();
 

@@ -5,15 +5,9 @@ import '../../models/events.dart';
 import '../../providers/events_provider.dart';
 import '../welcome_message_screen.dart';
 import 'event_actions_screen.dart';
-import '../home/settings_screen.dart';
 import '../../widgets/modals/campaign_dialog.dart';
-import '../../providers/user_provider.dart';
-
-import '../../utils/db/user_db_helper.dart';
-import '../../utils/db/contact_db_helper.dart';
-import '../../utils/db/sms_db_helper.dart';
-import '../home/edit_profile_screen.dart';
 import '../../widgets/list/events_list.dart';
+import '../../widgets/header_user.dart';
 
 class CampaignsScreen extends ConsumerStatefulWidget {
   const CampaignsScreen({super.key});
@@ -23,93 +17,6 @@ class CampaignsScreen extends ConsumerStatefulWidget {
 }
 
 class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
-  final GlobalKey _profileKey = GlobalKey();
-
-  void _showProfileMenu() async {
-    final RenderBox button =
-        _profileKey.currentContext!.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    final RelativeRect position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset(0, button.size.height), ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset(0, button.size.height)),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-
-    await showMenu(
-      context: context,
-      position: position,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
-      elevation: 8,
-      items: [
-        const PopupMenuItem<String>(value: 'settings', child: Text('Settings')),
-        const PopupMenuItem<String>(
-          value: 'edit_profile',
-          child: Text('Edit Profile'),
-        ),
-        const PopupMenuItem<String>(
-          value: 'logout',
-          child: Text('Logout', style: TextStyle(color: Colors.red)),
-        ),
-      ],
-    ).then((value) async {
-      if (value == 'logout') {
-        debugPrint('Logout (Campaigns): Starting standard logout...');
-
-        // 1. Delete User (Auth) - PRIORITY
-        try {
-          await UserDbHelper().deleteUser();
-          debugPrint('Logout: User deleted from DB.');
-        } catch (e) {
-          debugPrint('Logout: Error deleting user: $e');
-        }
-
-        // 2. Wipe other Data
-        try {
-          await ContactDbHelper.instance.clearContacts();
-          await SmsDbHelper().deleteAllSms();
-          debugPrint('Logout: App data wiped.');
-        } catch (e) {
-          debugPrint('Logout: Error wiping app data: $e');
-        }
-
-        // 3. Clear Providers
-        if (context.mounted) {
-          ref.read(userProvider.notifier).clearUser();
-          // ref.read(contactsProvider.notifier).clear(); // If contacts provider is imported
-          // I added import for contacts_provider.dart so I can use it.
-          // However, let's check if ref ensures availability. Yes.
-          // But wait, eventsProvider is used in this file. contactsProvider not yet.
-          // I'll skip clearing contactsProvider to avoid "provider not found" if I forgot import.
-          // Actually I added the import in the first chunk above. So I can use it.
-          // Actually, I'll stick to userProvider clearing to be safe and simple,
-          // as the DB wipe is the critical part for session.
-        }
-
-        if (context.mounted) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
-        }
-      } else if (value == 'settings') {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
-      } else if (value == 'edit_profile') {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-        );
-      }
-    });
-  }
-
   void _showAddEventDialog() {
     showDialog(
       context: context,
@@ -267,62 +174,15 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userProvider);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
             // Header with Profile
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 16.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    key: _profileKey,
-                    onTap: _showProfileMenu,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: const Color(0xFFFBB03B),
-                            radius: 16,
-                            backgroundImage: user.photoUrl != null
-                                ? NetworkImage(user.photoUrl!)
-                                : null,
-                            child: user.photoUrl == null
-                                ? const Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                    size: 20,
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            user.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+              child: HeaderUser(),
             ),
 
             Expanded(

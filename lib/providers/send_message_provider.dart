@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/sms_service.dart';
 import 'contacts_provider.dart';
+import 'tags_provider.dart';
 import '../models/contact.dart';
 
 // Message Model
@@ -147,21 +148,28 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
       }
     }
 
-    // Manual Recipient (Create dummy contact)
+    // Manual Recipient (Create and save contact with 'new' tag)
     if (state.selectedContactIds.isEmpty &&
         state.selectedTagIds.isEmpty &&
         manualRecipient != null &&
         manualRecipient.isNotEmpty) {
-      targetContacts.add(
-        Contact(
-          contact_id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
-          first_name: 'Manual',
-          last_name: 'Recipient',
-          phone: manualRecipient,
-          created: DateTime.now(),
-          tags: [],
-        ),
+      final newTag = await ref
+          .read(tagsProvider.notifier)
+          .getOrCreateTag('new');
+
+      final manualContact = Contact(
+        contact_id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
+        first_name: 'Manual',
+        last_name: 'Recipient',
+        phone: manualRecipient,
+        created: DateTime.now(),
+        tags: [newTag],
       );
+
+      // Save to database
+      await ref.read(contactsProvider.notifier).addContact(manualContact);
+
+      targetContacts.add(manualContact);
     }
 
     if (targetContacts.isEmpty) {

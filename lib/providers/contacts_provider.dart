@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'tags_provider.dart';
 import '../models/contact.dart';
 import '../models/tag.dart';
 import '../utils/db/contact_db_helper.dart';
@@ -48,13 +49,10 @@ class ContactsNotifier extends Notifier<List<Contact>> {
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
-      final String tagId = "tag_new";
-      final Tag newTag = Tag(
-        id: tagId,
-        name: 'new',
-        created: DateTime.now(),
-        color: '#FF0000', // Example color: Red
-      );
+      // Get/Create 'new' tag once for the batch
+      final Tag newTag = await ref
+          .read(tagsProvider.notifier)
+          .getOrCreateTag('new');
 
       final List<Contact> fetchedContacts = data.map((item) {
         return Contact(

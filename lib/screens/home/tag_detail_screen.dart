@@ -1,58 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/contacts_provider.dart';
+import '../../models/contact.dart';
+import '../../models/tag.dart';
 import 'add_contacts_to_tag_screen.dart';
 
-class TagDetailScreen extends StatefulWidget {
-  final String tagName;
-  final int peopleCount;
+class TagDetailScreen extends ConsumerStatefulWidget {
+  final Tag tag;
 
-  const TagDetailScreen({
-    super.key,
-    required this.tagName,
-    this.peopleCount = 0,
-  });
+  const TagDetailScreen({super.key, required this.tag});
 
   @override
-  State<TagDetailScreen> createState() => _TagDetailScreenState();
+  ConsumerState<TagDetailScreen> createState() => _TagDetailScreenState();
 }
 
-class _TagDetailScreenState extends State<TagDetailScreen> {
+class _TagDetailScreenState extends ConsumerState<TagDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
-  // Mock data matching the screenshot/previous context
-  final List<Map<String, String>> _contacts = [
-    {'name': 'Antony', 'number': '09123456789'},
-    {'name': 'Berna', 'number': '09345612368'},
-    {'name': 'Cathy', 'number': '09345612368'},
-    {'name': 'Doglas', 'number': '09345612368'},
-  ];
-  List<Map<String, String>> _filteredContacts = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _filteredContacts = List.from(_contacts);
-    _searchController.addListener(_onSearchChanged);
-  }
+  String _searchQuery = '';
 
   @override
   void dispose() {
-    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    final query = _searchController.text.toLowerCase();
+  void _onSearchChanged(String value) {
     setState(() {
-      _filteredContacts = _contacts.where((contact) {
-        final name = contact['name']!.toLowerCase();
-        final number = contact['number']!.toLowerCase();
-        return name.contains(query) || number.contains(query);
-      }).toList();
+      _searchQuery = value.toLowerCase();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final contacts = ref.watch(contactsProvider);
+
+    // Filter contacts that have this tag
+    final tagContacts = contacts.where((contact) {
+      return contact.tags.any((t) => t.id == widget.tag.id);
+    }).toList();
+
+    // Secondary filter for search
+    final filteredContacts = tagContacts.where((contact) {
+      final fullName = "${contact.first_name} ${contact.last_name}"
+          .toLowerCase();
+      final phone = contact.phone;
+      return fullName.contains(_searchQuery) || phone.contains(_searchQuery);
+    }).toList();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -63,7 +57,7 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          widget.tagName,
+          widget.tag.name,
           style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -78,7 +72,7 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) =>
-                        AddContactsToTagScreen(tagName: widget.tagName),
+                        AddContactsToTagScreen(tag: widget.tag),
                   ),
                 );
               },
@@ -107,6 +101,7 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _searchController,
+              onChanged: _onSearchChanged,
               decoration: InputDecoration(
                 hintText: 'Search contacts...',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -130,7 +125,7 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              '${widget.peopleCount} people',
+              '${tagContacts.length} people',
               style: TextStyle(
                 color: Colors.grey[600],
                 fontWeight: FontWeight.bold,
@@ -144,31 +139,31 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
           // Contact List
           Expanded(
             child: ListView.separated(
-              itemCount: _filteredContacts.length,
+              itemCount: filteredContacts.length,
               separatorBuilder: (context, index) =>
                   const Divider(height: 1, indent: 16),
               itemBuilder: (context, index) {
-                final contact = _filteredContacts[index];
+                final contact = filteredContacts[index];
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 4,
                   ),
                   title: Text(
-                    contact['name']!,
+                    "${contact.first_name} ${contact.last_name}",
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   subtitle: Text(
-                    contact['number']!,
+                    contact.phone,
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   trailing: IconButton(
                     icon: Icon(Icons.delete_outline, color: Colors.grey[400]),
                     onPressed: () {
-                      _showDeleteConfirmation(index, contact['name']!);
+                      _showDeleteConfirmation(contact);
                     },
                   ),
                 );
@@ -180,13 +175,13 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
     );
   }
 
-  void _showDeleteConfirmation(int index, String contactName) {
+  void _showDeleteConfirmation(Contact contact) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         backgroundColor: Colors.white,
-        child: Container(
+        child: SizedBox(
           width: 270, // Approximate standard iOS dialog width
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -199,15 +194,13 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
                   right: 16.0,
                 ),
                 child: Text(
-                  'Are you sure you want to\nremove this contact from\n${widget.tagName}?',
+                  'Are you sure you want to\nremove this contact from\n${widget.tag.name}?',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 17,
                     height: 1.3,
                     color: Colors.black,
-                    fontFamily: '.SF UI Display', // iOS font attempt or default
-                    decoration: TextDecoration.none,
                   ),
                 ),
               ),
@@ -216,19 +209,29 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
                 children: [
                   Expanded(
                     child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          // Remove from source and filtered list
-                          final contactToRemove = _filteredContacts[index];
-                          _contacts.removeWhere(
-                            (c) => c['name'] == contactToRemove['name'],
+                      onTap: () async {
+                        // Remove tag from contact
+                        final updatedTags = contact.tags
+                            .where((t) => t.id != widget.tag.id)
+                            .toList();
+                        final updatedContact = contact.copyWith(
+                          tags: updatedTags,
+                        );
+
+                        await ref
+                            .read(contactsProvider.notifier)
+                            .updateContact(updatedContact);
+
+                        if (mounted) {
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Contact removed from ${widget.tag.name}',
+                              ),
+                            ),
                           );
-                          // Update filtered list immediately or via method
-                          _filteredContacts.removeAt(index);
-                          // Re-filter if needed (optional but good for consistency)
-                          // _onSearchChanged();
-                        });
-                        Navigator.of(context).pop();
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -258,8 +261,7 @@ class _TagDetailScreenState extends State<TagDetailScreen> {
                         child: const Text(
                           'Cancel',
                           style: TextStyle(
-                            color: Colors
-                                .black, // Default iOS action color often blue, but design looks grey/black
+                            color: Colors.black,
                             fontSize: 17,
                             fontWeight: FontWeight.w400,
                           ),

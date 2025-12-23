@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:csv/csv.dart';
 import '../models/contact.dart';
 import '../models/tag.dart';
@@ -14,7 +15,11 @@ class CsvService {
     String delimiter = ',';
     if (input.contains('\t')) {
       delimiter = '\t';
+    } else if (input.contains(';')) {
+      delimiter = ';';
     }
+
+    debugPrint('🔵 Detected CSV delimiter: "$delimiter"');
 
     // Convert
     List<List<dynamic>> rows = CsvToListConverter(

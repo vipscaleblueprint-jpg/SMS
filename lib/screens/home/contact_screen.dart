@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,13 +17,9 @@ import '../../providers/user_provider.dart';
 import '../../services/csv_service.dart';
 import '../../models/contact.dart';
 import '../../models/tag.dart';
-import '../../utils/db/user_db_helper.dart';
-import '../../utils/db/contact_db_helper.dart';
-import '../../utils/db/sms_db_helper.dart';
-import 'settings_screen.dart';
-import 'edit_profile_screen.dart';
 import 'add_contact_screen.dart';
 import '../send/send_screen.dart';
+import '../../widgets/header_user.dart';
 
 import '../campaigns/campaigns_screen.dart';
 
@@ -69,6 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       Permission.contacts,
       Permission.phone,
       Permission.notification,
+      Permission.storage,
     ].request();
 
     // Specific check for MobileNumber plugin
@@ -124,7 +122,6 @@ class ContactsPage extends ConsumerStatefulWidget {
 class _ContactsPageState extends ConsumerState<ContactsPage> {
   bool _showAllContacts = true;
   final GlobalKey _addContactBtnKey = GlobalKey();
-  final GlobalKey _profileKey = GlobalKey();
   bool _isImporting = false; // Flag to prevent concurrent imports
 
   Future<void> _importCsvContacts() async {
@@ -138,16 +135,58 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
     try {
       debugPrint('🔵 Starting CSV import...');
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv', 'txt'],
-        withData:
-            true, // Request file data in memory for Android 10+ support where path might fail
-      );
+      debugPrint('🔵 Launching file picker...');
+      FilePickerResult? result;
+      try {
+        // We use FileType.custom as it's often more reliable for specific file types on Drive
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['csv', 'txt'],
+          withData: true,
+        );
+      } on PlatformException catch (pe) {
+        debugPrint(
+          '🔴 PlatformException during pickFiles: ${pe.code} - ${pe.message}',
+        );
+        if (pe.code == 'unknown_path') {
+          debugPrint('🔵 Falling back to FileType.any due to unknown_path...');
+          result = await FilePicker.platform.pickFiles(
+            type: FileType.any,
+            withData: true,
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       if (result != null) {
-        String csvString = '';
         final fileParams = result.files.first;
+        debugPrint(
+          '🔵 Picked file properties -> Name: ${fileParams.name}, Path: ${fileParams.path}, Bytes: ${fileParams.bytes?.length}',
+        );
+
+        final extension = fileParams.extension?.toLowerCase() ?? '';
+
+        // Validation including filename check as FileType.any was used
+        bool isValidExtension =
+            extension == 'csv' ||
+            extension == 'txt' ||
+            fileParams.name.toLowerCase().endsWith('.csv') ||
+            fileParams.name.toLowerCase().endsWith('.txt');
+
+        if (!isValidExtension) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please select a .csv or .txt file'),
+              ),
+            );
+          }
+          setState(() => _isImporting = false);
+          return;
+        }
+
+        String csvString = '';
 
         // Try bytes first if available (reliable for Android URI schemes)
         if (fileParams.bytes != null) {
@@ -201,7 +240,21 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
               (contact.first_name.isNotEmpty || contact.last_name.isNotEmpty)) {
             // Ensure tags exist in DB
             List<Tag> finalTags = [];
+
+            // 1. Add "new" tag automatically for all imported contacts
+            try {
+              final newTag = await ref
+                  .read(tagsProvider.notifier)
+                  .getOrCreateTag('new');
+              finalTags.add(newTag);
+            } catch (e) {
+              debugPrint('⚠️ Error processing "new" tag: $e');
+            }
+
             for (var t in contact.tags) {
+              // Avoid adding 'new' twice if it was already in the CSV
+              if (t.name.toLowerCase() == 'new') continue;
+
               try {
                 final tag = await ref
                     .read(tagsProvider.notifier)
@@ -318,97 +371,6 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     });
   }
 
-  void _showProfileMenu() async {
-    final RenderBox button =
-        _profileKey.currentContext!.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    final RelativeRect position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset(0, button.size.height), ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset(0, button.size.height)),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-
-    final value = await showMenu<String>(
-      context: context,
-      position: position,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      elevation: 8,
-      items: [
-        const PopupMenuItem<String>(value: 'settings', child: Text('Settings')),
-        const PopupMenuItem<String>(
-          value: 'edit_profile',
-          child: Text('Edit Profile'),
-        ),
-        const PopupMenuItem<String>(
-          value: 'logout',
-          child: Text('Logout', style: TextStyle(color: Colors.red)),
-        ),
-      ],
-    );
-
-    if (value != null && mounted) {
-      if (value == 'logout') {
-        debugPrint('Logout: Starting standard logout...');
-
-        // 1. Delete User (Auth) - PRIORITY
-        try {
-          await UserDbHelper().deleteUser();
-          debugPrint('Logout: User deleted from DB.');
-
-          // Verification
-          final checkUser = await UserDbHelper().getUser();
-          if (checkUser != null) {
-            debugPrint('Logout CRITICAL: User still exists after delete!');
-            // Force delete again?
-            await UserDbHelper().deleteUser();
-          } else {
-            debugPrint('Logout: Verification successful, user is null.');
-          }
-        } catch (e) {
-          debugPrint('Logout: Error deleting user: $e');
-        }
-
-        // 2. Wipe other Data (Best effort)
-        try {
-          await ContactDbHelper.instance.clearContacts();
-          await SmsDbHelper().deleteAllSms();
-          debugPrint('Logout: App data wiped.');
-        } catch (e) {
-          debugPrint('Logout: Error wiping app data: $e');
-        }
-
-        // 3. Clear Providers (Memory)
-        ref.read(userProvider.notifier).clearUser();
-        ref.read(contactsProvider.notifier).clear();
-
-        if (mounted) {
-          // Navigate back to login screen and remove all previous routes
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
-        }
-      } else if (value == 'settings') {
-        // Navigate to settings screen
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
-      } else if (value == 'edit_profile') {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-        );
-      }
-    }
-  }
-
   void _showAddTagDialog() {
     showDialog(
       context: context,
@@ -436,45 +398,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Top Bar: User Profile
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                GestureDetector(
-                  key: _profileKey,
-                  onTap: _showProfileMenu,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: Color(0xFFFBB03B),
-                          radius: 16,
-                          child: Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Antony John',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            const HeaderUser(),
             const SizedBox(height: 24),
 
             // Tabs: All Contacts / Manage Tags AND Add Contact Button

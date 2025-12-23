@@ -265,10 +265,7 @@ class _TagsListState extends ConsumerState<TagsList> {
                           } else {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => TagDetailScreen(
-                                  tagName: tag.name,
-                                  peopleCount: count,
-                                ),
+                                builder: (context) => TagDetailScreen(tag: tag),
                               ),
                             );
                           }

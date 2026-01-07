@@ -28,21 +28,28 @@ import 'tag_detail_screen.dart';
 class HomeScreen extends ConsumerStatefulWidget {
   final String? userName;
   final String? userPhotoUrl;
+  final int initialIndex;
 
-  const HomeScreen({super.key, this.userName, this.userPhotoUrl});
+  const HomeScreen({
+    super.key,
+    this.userName,
+    this.userPhotoUrl,
+    this.initialIndex = 1,
+  });
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _currentIndex = 1;
+  late int _currentIndex;
 
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     _checkPermissions();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

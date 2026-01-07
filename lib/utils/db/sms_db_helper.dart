@@ -22,7 +22,7 @@ class SmsDbHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -40,7 +40,17 @@ class SmsDbHelper {
         status TEXT NOT NULL, 
         sentTimeStamps TEXT,
         schedule_time TEXT,
-        event_id INTEGER
+        event_id INTEGER,
+        group_id INTEGER,
+        recurrence TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE scheduled_groups(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        isActive INTEGER NOT NULL DEFAULT 1
       )
     ''');
   }
@@ -53,6 +63,19 @@ class SmsDbHelper {
     } else if (oldVersion < 4) {
       // Version 3 to 4: Add title column
       await db.execute('ALTER TABLE sms ADD COLUMN title TEXT');
+    } else if (oldVersion < 5) {
+      // Version 4 to 5: Add recurrence column
+      await db.execute('ALTER TABLE sms ADD COLUMN recurrence TEXT');
+    } else if (oldVersion < 6) {
+      // Version 5 to 6: Add group_id to sms and create scheduled_groups table
+      await db.execute('ALTER TABLE sms ADD COLUMN group_id INTEGER');
+      await db.execute('''
+        CREATE TABLE scheduled_groups(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          isActive INTEGER NOT NULL DEFAULT 1
+        )
+      ''');
     }
   }
 
@@ -105,5 +128,39 @@ class SmsDbHelper {
   Future<void> deleteAllSms() async {
     final db = await database;
     await db.delete('sms');
+  }
+
+  // --- Scheduled Group Operations ---
+
+  Future<int> insertScheduledGroup(Map<String, dynamic> group) async {
+    final db = await database;
+    return await db.insert('scheduled_groups', group);
+  }
+
+  Future<List<Map<String, dynamic>>> getScheduledGroups() async {
+    final db = await database;
+    return await db.query('scheduled_groups');
+  }
+
+  Future<int> updateScheduledGroup(Map<String, dynamic> group) async {
+    final db = await database;
+    return await db.update(
+      'scheduled_groups',
+      group,
+      where: 'id = ?',
+      whereArgs: [group['id']],
+    );
+  }
+
+  Future<int> deleteScheduledGroup(int id) async {
+    final db = await database;
+    // Also delete or clear group_id from SMS?
+    // Image shows delete icon. Usually we'd delete messages in group too.
+    await db.delete('sms', where: 'group_id = ?', whereArgs: [id]);
+    return await db.delete(
+      'scheduled_groups',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

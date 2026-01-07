@@ -7,6 +7,7 @@ import '../../providers/sms_provider.dart';
 class AddSmsScreen extends ConsumerStatefulWidget {
   final String eventTitle;
   final int? eventId;
+  final int? groupId; // Added for groups
   final DateTime? eventDate;
   final Sms? smsToEdit; // Added for editing
 
@@ -14,6 +15,7 @@ class AddSmsScreen extends ConsumerStatefulWidget {
     super.key,
     required this.eventTitle,
     this.eventId,
+    this.groupId,
     this.eventDate,
     this.smsToEdit,
   });
@@ -28,6 +30,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
     text:
         "Subject: Thanks, your spot is saved!\n\n{{first_name}}\n\nThanks for registering for [your webinar name]!\nHere are the details of when we're starting:\nTime: {{ event_time | date: \"%B %d, %Y %I:%M%p (%Z)\" }}\n\nThe webinar link will be emailed to you on the day of the event :)\n\nHere's what I'll be covering in the webinar:\n[insert a numbered list or bullet points of the topics you'll be talking about in the live stream]\n\nTalk soon,\nYour Name",
   );
+  final TextEditingController _messageController = TextEditingController();
 
   bool _isDropdownOpen = false;
   String _selectedTimeOrientation = 'Draft'; // Default to Draft
@@ -41,9 +44,22 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
 
   DateTime? _selectedDateTime;
 
+  List<String> get _filteredTimeOptions {
+    if (widget.eventId == null || widget.groupId != null) {
+      return ['Monthly', 'Weekly', 'Specific Date and Time'];
+    }
+    return _timeOptions;
+  }
+
+  String _selectedMonthlyDay = '15th';
+  String _selectedWeeklyDay = 'Monday';
+
   // Relative Time State
   final TextEditingController _relativeTimeValueController =
       TextEditingController();
+  final TextEditingController _monthlyDayController = TextEditingController(
+    text: '15',
+  );
   String _relativeTimeUnit = 'days';
   final List<String> _relativeTimeOptions = [
     'minutes',
@@ -56,6 +72,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
 
   final FocusNode _bodyFocusNode = FocusNode();
   final FocusNode _titleFocusNode = FocusNode(); // Add new FocusNode
+  final FocusNode _monthlyDayFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -88,9 +105,23 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
           _selectedTimeOrientation = 'Specific Date and Time';
           _selectedDateTime = widget.smsToEdit!.schedule_time;
         }
-      } else {
-        // Fallback
-        _selectedTimeOrientation = 'Draft';
+      }
+
+      if (widget.smsToEdit!.recurrence != null) {
+        if (widget.smsToEdit!.recurrence!.startsWith('Monthly:')) {
+          _selectedTimeOrientation = 'Monthly';
+          _selectedMonthlyDay = widget.smsToEdit!.recurrence!.split(':')[1];
+          _monthlyDayController.text = _selectedMonthlyDay;
+        } else if (widget.smsToEdit!.recurrence!.startsWith('Weekly:')) {
+          _selectedTimeOrientation = 'Weekly';
+          _selectedWeeklyDay = widget.smsToEdit!.recurrence!.split(':')[1];
+        }
+      }
+    } else {
+      // Default for new SMS
+      if (widget.eventId == null || widget.groupId != null) {
+        _selectedTimeOrientation = 'Monthly';
+        _monthlyDayController.text = '15';
       }
     }
   }
@@ -99,9 +130,12 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
   void dispose() {
     _titleController.dispose();
     _bodyController.dispose();
+    _messageController.dispose();
     _relativeTimeValueController.dispose();
+    _monthlyDayController.dispose();
     _bodyFocusNode.dispose();
     _titleFocusNode.dispose(); // Dispose new node
+    _monthlyDayFocusNode.dispose();
     super.dispose();
   }
 
@@ -221,6 +255,58 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
       if (widget.eventDate != null) {
         return _calculateRelativeTime(widget.eventDate!, isBefore: false);
       }
+    } else if (_selectedTimeOrientation == 'Monthly') {
+      DateTime now = DateTime.now();
+      int day = int.tryParse(_monthlyDayController.text) ?? 15;
+      // Clamp day between 1 and 31
+      if (day < 1) day = 1;
+      if (day > 31) day = 31;
+
+      // Ensure we don't pick a day that doesn't exist in the target month
+      // (Simplified: if day > 28/29/30/31, DateTime constructor usually rolls over to next month)
+      // For simplicity, we'll just use the day provided.
+      DateTime target = DateTime(now.year, now.month, day, 10, 0);
+      if (target.isBefore(now)) {
+        // Find next month's occurrence
+        int nextMonth = now.month + 1;
+        int nextYear = now.year;
+        if (nextMonth > 12) {
+          nextMonth = 1;
+          nextYear++;
+        }
+        target = DateTime(nextYear, nextMonth, day, 10, 0);
+      }
+      return target;
+    } else if (_selectedTimeOrientation == 'Weekly') {
+      DateTime now = DateTime.now();
+      int targetWeekday = DateTime.monday;
+      switch (_selectedWeeklyDay) {
+        case 'Monday':
+          targetWeekday = DateTime.monday;
+          break;
+        case 'Tuesday':
+          targetWeekday = DateTime.tuesday;
+          break;
+        case 'Wednesday':
+          targetWeekday = DateTime.wednesday;
+          break;
+        case 'Thursday':
+          targetWeekday = DateTime.thursday;
+          break;
+        case 'Friday':
+          targetWeekday = DateTime.friday;
+          break;
+      }
+
+      DateTime target = DateTime(now.year, now.month, now.day, 10, 0);
+      // If today is target day but time passed, or not target day, find next
+      if (target.isBefore(now) || target.weekday != targetWeekday) {
+        // Move to next occurrence of that weekday
+        int daysToAdd = (targetWeekday - now.weekday + 7) % 7;
+        if (daysToAdd == 0 && target.isBefore(now)) daysToAdd = 7;
+        target = target.add(Duration(days: daysToAdd));
+      }
+      return target;
     }
     return null;
   }
@@ -233,11 +319,17 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
       title: _titleController.text,
       message: _bodyController.text,
       event_id: widget.eventId,
+      group_id: widget.groupId ?? widget.smsToEdit?.group_id,
       status: finalScheduleTime == null ? SmsStatus.draft : SmsStatus.pending,
       contact_id: widget.smsToEdit?.contact_id,
       phone_number: widget.smsToEdit?.phone_number,
       sender_number: widget.smsToEdit?.sender_number,
       schedule_time: finalScheduleTime,
+      recurrence: _selectedTimeOrientation == 'Monthly'
+          ? 'Monthly:${_monthlyDayController.text}'
+          : _selectedTimeOrientation == 'Weekly'
+          ? 'Weekly:$_selectedWeeklyDay'
+          : null,
     );
 
     if (widget.smsToEdit != null) {
@@ -291,6 +383,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        centerTitle: false,
         actions: [
           if (widget.smsToEdit != null)
             IconButton(
@@ -331,6 +424,16 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    'Scheduled Message',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   // Title Section
                   const Text(
                     'Title',
@@ -373,7 +476,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
 
                   // When Section
                   const Text(
-                    'When',
+                    'Frequency',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -429,7 +532,7 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                         ),
                       ),
                       child: Column(
-                        children: _timeOptions.map((option) {
+                        children: _filteredTimeOptions.map((option) {
                           return InkWell(
                             onTap: () {
                               setState(() {
@@ -495,6 +598,127 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                             ),
                           ),
                         ),
+                      ),
+                    ),
+
+                  // CONDITIONAL RENDER: Monthly
+                  if (_selectedTimeOrientation == 'Monthly')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Day of the Month',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: TextField(
+                              controller: _monthlyDayController,
+                              focusNode: _monthlyDayFocusNode,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                hintText: 'Enter day (1-31)',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                              onChanged: (val) {
+                                setState(() {
+                                  _selectedMonthlyDay = val;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'The message will be sent on this day every month.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black38,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // CONDITIONAL RENDER: Weekly
+                  if (_selectedTimeOrientation == 'Weekly')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Select Weekday',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children:
+                                  [
+                                    'Monday',
+                                    'Tuesday',
+                                    'Wednesday',
+                                    'Thursday',
+                                    'Friday',
+                                  ].map((day) {
+                                    bool isSelected = _selectedWeeklyDay == day;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        right: 8.0,
+                                      ),
+                                      child: ChoiceChip(
+                                        label: Text(day),
+                                        selected: isSelected,
+                                        onSelected: (val) {
+                                          if (val)
+                                            setState(
+                                              () => _selectedWeeklyDay = day,
+                                            );
+                                        },
+                                        selectedColor: const Color(0xFFFBB03B),
+                                        labelStyle: TextStyle(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.black87,
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
+                                        backgroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          side: BorderSide(
+                                            color: isSelected
+                                                ? const Color(0xFFFBB03B)
+                                                : Colors.grey.shade300,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
@@ -767,6 +991,48 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: InputDecoration(
+                            hintText: 'Send a message...',
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFBB03B),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.send,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

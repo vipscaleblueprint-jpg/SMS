@@ -16,6 +16,8 @@ class Sms {
   final DateTime? sentTimeStamps;
   final DateTime? schedule_time;
   final int? event_id;
+  final int? group_id; // For scheduled groups
+  final String? recurrence; // e.g., 'Monthly', 'Weekly', '15th', 'Monday'
 
   Sms({
     this.id,
@@ -28,6 +30,8 @@ class Sms {
     this.sentTimeStamps,
     this.schedule_time,
     this.event_id,
+    this.group_id,
+    this.recurrence,
   });
 
   Map<String, dynamic> toMap() {
@@ -42,6 +46,8 @@ class Sms {
       'sentTimeStamps': sentTimeStamps?.toIso8601String(),
       'schedule_time': schedule_time?.toIso8601String(),
       'event_id': event_id,
+      'group_id': group_id,
+      'recurrence': recurrence,
     };
   }
 
@@ -80,6 +86,8 @@ class Sms {
           ? DateTime.parse(map['schedule_time'] as String)
           : null,
       event_id: map['event_id'] as int?,
+      group_id: map['group_id'] as int?,
+      recurrence: map['recurrence'] as String?,
     );
   }
 }

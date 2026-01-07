@@ -91,6 +91,7 @@ class SmsNotifier extends Notifier<List<Sms>> {
           sentTimeStamps: sms.sentTimeStamps,
           schedule_time: sms.schedule_time, // Keep the schedule time
           event_id: sms.event_id,
+          recurrence: sms.recurrence,
         );
         await SmsDbHelper().updateSms(updatedSms);
       }

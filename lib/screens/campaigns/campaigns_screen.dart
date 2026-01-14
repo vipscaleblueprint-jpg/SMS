@@ -62,7 +62,7 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'Delete this Event?',
+                      'Delete this Event? ',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,

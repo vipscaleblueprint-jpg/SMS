@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/events.dart';
 import '../../providers/events_provider.dart';
 import '../welcome_message_screen.dart';
+import 'scheduled_messages_screen.dart';
 import 'event_actions_screen.dart';
 import '../../widgets/modals/campaign_dialog.dart';
 import '../../widgets/list/events_list.dart';
@@ -262,6 +263,59 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                             ),
                             Transform.rotate(
                               angle: -0.5, // Tilted paper plane
+                              child: const Icon(
+                                Icons.send,
+                                color: Colors.grey,
+                                size: 32,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Scheduled Message Card
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const ScheduledMessagesScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Scheduled Message',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Send Scheduled Message to new\nimported contacts',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Transform.rotate(
+                              angle: -0.5,
                               child: const Icon(
                                 Icons.send,
                                 color: Colors.grey,

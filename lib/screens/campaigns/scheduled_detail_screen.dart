@@ -3,6 +3,7 @@ import '../../models/scheduled_group.dart';
 import '../../models/scheduled_sms.dart';
 import '../../utils/db/scheduled_db_helper.dart';
 import 'add_scheduled_message_screen.dart';
+import '../../utils/scheduling_utils.dart';
 
 class ScheduledDetailScreen extends StatefulWidget {
   final ScheduledGroup group;
@@ -17,11 +18,24 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
   bool _isScheduledEnabled = true;
   List<ScheduledSms> _messages = [];
   bool _isLoading = true;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadMessages();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMessages() async {
@@ -134,6 +148,43 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
                   ),
                 ),
 
+                // Search Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search messages',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, color: Colors.grey[400]),
+                              onPressed: () {
+                                _searchController.clear();
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFEEEEEE)),
+
                 if (_isLoading)
                   const Padding(
                     padding: EdgeInsets.all(24.0),
@@ -150,14 +201,42 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
                     ),
                   )
                 else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      return _buildMessageItem(message: msg);
-                    },
+                  Container(
+                    color: const Color(0xFFF6F6F6), // Light grey background
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Builder(
+                      builder: (context) {
+                        final filteredMessages = _messages
+                            .where(
+                              (m) => m.title.toLowerCase().contains(
+                                _searchQuery.toLowerCase(),
+                              ),
+                            )
+                            .toList();
+
+                        if (filteredMessages.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Center(
+                              child: Text(
+                                "No matching messages",
+                                style: TextStyle(color: Colors.grey[400]),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filteredMessages.length,
+                          itemBuilder: (context, index) {
+                            final msg = filteredMessages[index];
+                            return _buildMessageItem(message: msg);
+                          },
+                        );
+                      },
+                    ),
                   ),
 
                 // Footer: + Add Message
@@ -199,37 +278,29 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
   }
 
   Widget _buildMessageItem({required ScheduledSms message}) {
-    Color checkColor = Colors.grey;
+    Color checkColor = message.status == 'sent'
+        ? const Color(0xFFFBB03B)
+        : Colors.grey.shade400;
 
-    if (message.status == 'sent') {
-      checkColor = const Color(0xFFFBB03B); // Orange check
-    } else if (message.status == 'pending') {
-      checkColor = Colors.grey; // Grey check
-    }
-
-    String dateText = message.scheduledTime != null
-        ? _formatDate(message.scheduledTime!)
-        : (message.frequency.isNotEmpty ? message.frequency : 'Draft');
-
-    // Override for draft status
+    String dateText = '';
     if (message.status == 'draft') {
       dateText = 'Draft';
+    } else if (message.frequency == 'Monthly' && message.scheduledDay != null) {
+      dateText =
+          '${message.scheduledDay}${SchedulingUtils.getDaySuffix(message.scheduledDay!)} of the month';
+    } else if (message.frequency == 'Weekly' && message.scheduledDay != null) {
+      dateText = 'Every ${SchedulingUtils.weekDays[message.scheduledDay! - 1]}';
+    } else {
+      dateText = message.frequency;
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, 2),
-            blurRadius: 4,
-          ),
-        ],
-        border: Border.all(color: Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white), // Subtle border
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,9 +311,9 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
               Text(
                 message.title,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: Colors.black87,
+                  color: Color(0xFF555555), // Slightly muted black
                 ),
               ),
               if (message.status != 'draft')
@@ -250,55 +321,23 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          const Divider(height: 1, color: Color(0xFFF1F1F1)),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
-              const SizedBox(width: 6),
+              Icon(Icons.calendar_month, size: 16, color: Colors.grey[700]),
+              const SizedBox(width: 8),
               Text(
                 dateText,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-              if (message.status == 'draft') ...[
-                const Spacer(),
-                const Text(
-                  'DRAFT',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFFBB03B),
-                  ),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[400], // Match mockup muted date
                 ),
-              ],
+              ),
             ],
           ),
         ],
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    // Manual formatting: Month Day, Year Time
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    final month = months[date.month - 1];
-    final hour = date.hour > 12
-        ? date.hour - 12
-        : (date.hour == 0 ? 12 : date.hour);
-    final amPm = date.hour >= 12 ? 'PM' : 'AM';
-    final minute = date.minute.toString().padLeft(2, '0');
-
-    return "$month ${date.day}, ${date.year} $hour:$minute $amPm";
   }
 }

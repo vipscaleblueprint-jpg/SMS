@@ -17,6 +17,25 @@ class ScheduledMessagesScreen extends ConsumerStatefulWidget {
 
 class _ScheduledMessagesScreenState
     extends ConsumerState<ScheduledMessagesScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _showAddScheduledDialog() {
     final titleController = TextEditingController();
 
@@ -203,10 +222,22 @@ class _ScheduledMessagesScreenState
 
                     // Search Bar
                     TextField(
+                      controller: _searchController,
                       decoration: InputDecoration(
                         hintText: 'Search Scheduled SMS',
                         hintStyle: TextStyle(color: Colors.grey[400]),
                         prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: Colors.grey[400],
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                },
+                              )
+                            : null,
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: 12,
                           horizontal: 16,
@@ -245,16 +276,28 @@ class _ScheduledMessagesScreenState
 
                     // List Items
                     Expanded(
-                      child: scheduledGroups.isEmpty
-                          ? const Center(child: Text("No scheduled items"))
-                          : ListView.builder(
-                              itemCount: scheduledGroups.length,
-                              itemBuilder: (context, index) {
-                                return _buildScheduledItem(
-                                  scheduledGroups[index],
-                                );
-                              },
-                            ),
+                      child: Builder(
+                        builder: (context) {
+                          final filteredGroups = scheduledGroups
+                              .where(
+                                (group) => group.title.toLowerCase().contains(
+                                  _searchQuery.toLowerCase(),
+                                ),
+                              )
+                              .toList();
+
+                          if (filteredGroups.isEmpty) {
+                            return const Center(child: Text("No items found"));
+                          }
+
+                          return ListView.builder(
+                            itemCount: filteredGroups.length,
+                            itemBuilder: (context, index) {
+                              return _buildScheduledItem(filteredGroups[index]);
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),

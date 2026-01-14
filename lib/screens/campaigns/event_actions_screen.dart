@@ -26,11 +26,24 @@ class EventActionsScreen extends ConsumerStatefulWidget {
 class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
   bool _isActionsEnabled = true;
   Event? _currentEvent;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadEventStatus();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadEventStatus() async {
@@ -128,6 +141,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
+                  minimumSize: const Size(80, 40),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 8,
@@ -135,7 +149,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                 ),
                 child: const Text(
                   'Save',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ),
@@ -170,9 +184,9 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'Event Actions',
+                            'Scheduled SMS',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Colors.black87,
                             ),
@@ -182,6 +196,8 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                             onChanged: _toggleEventStatus,
                             activeColor: Colors.white,
                             activeTrackColor: const Color(0xFFFBB03B),
+                            inactiveThumbColor: Colors.white,
+                            inactiveTrackColor: Colors.grey.shade400,
                           ),
                         ],
                       ),
@@ -211,12 +227,58 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                 ),
                 const Divider(height: 1),
 
+                // Search Bar
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search SMS',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, color: Colors.grey[400]),
+                              onPressed: () {
+                                _searchController.clear();
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+
                 // Action List Items
                 smsListAsync.when(
                   data: (smsList) {
-                    // Sort all SMS by schedule_time
-                    final sortedList = List<Sms>.from(smsList);
+                    // Filter and Sort all SMS by schedule_time
+                    final filteredList = smsList
+                        .where(
+                          (sms) => (sms.title ?? '').toLowerCase().contains(
+                            _searchQuery.toLowerCase(),
+                          ),
+                        )
+                        .toList();
+                    final sortedList = List<Sms>.from(filteredList);
                     final now = DateTime.now();
+
                     sortedList.sort((a, b) {
                       final isDraftA =
                           a.status == SmsStatus.draft &&
@@ -250,43 +312,96 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                       return dateA.compareTo(dateB);
                     });
 
-                    if (sortedList.isEmpty) {
-                      return const SizedBox(height: 0);
-                    }
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          color: const Color(
+                            0xFFF6F6F6,
+                          ), // Light grey list area
+                          padding: const EdgeInsets.symmetric(vertical: 0),
+                          child: ListView(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(vertical: 0),
+                            children: sortedList.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final sms = entry.value;
+                              final isLast = index == sortedList.length - 1;
 
-                    return ListView(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 0),
-                      children: sortedList.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final sms = entry.value;
-                        final isLast = index == sortedList.length - 1;
+                              bool nextIsDraft = false;
+                              if (!isLast) {
+                                final nextSms = sortedList[index + 1];
+                                nextIsDraft =
+                                    nextSms.status == SmsStatus.draft &&
+                                    nextSms.schedule_time == null;
+                              }
 
-                        bool nextIsDraft = false;
-                        if (!isLast) {
-                          final nextSms = sortedList[index + 1];
-                          nextIsDraft =
-                              nextSms.status == SmsStatus.draft &&
-                              nextSms.schedule_time == null;
-                        }
+                              bool prevIsDraft = false;
+                              if (index > 0) {
+                                final prevSms = sortedList[index - 1];
+                                prevIsDraft =
+                                    prevSms.status == SmsStatus.draft &&
+                                    prevSms.schedule_time == null;
+                              }
 
-                        bool prevIsDraft = false;
-                        if (index > 0) {
-                          final prevSms = sortedList[index - 1];
-                          prevIsDraft =
-                              prevSms.status == SmsStatus.draft &&
-                              prevSms.schedule_time == null;
-                        }
+                              return _buildSmsItem(
+                                sms,
+                                index,
+                                isLast,
+                                nextIsDraft,
+                                prevIsDraft,
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        // + Add SMS button inside card
+                        InkWell(
+                          onTap: () {
+                            DateTime? parsedEventDate;
+                            try {
+                              parsedEventDate = DateFormat(
+                                'MMM dd, yyyy hh:mm a',
+                              ).parse(widget.eventDate);
+                            } catch (e) {}
 
-                        return _buildSmsItem(
-                          sms,
-                          index,
-                          isLast,
-                          nextIsDraft,
-                          prevIsDraft,
-                        );
-                      }).toList(),
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute(
+                                    builder: (context) => AddSmsScreen(
+                                      eventTitle: widget.eventTitle,
+                                      eventId: widget.eventId,
+                                      eventDate: parsedEventDate,
+                                    ),
+                                  ),
+                                )
+                                .then((_) {
+                                  ref.invalidate(
+                                    eventSmsProvider(widget.eventId),
+                                  );
+                                });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            width: double.infinity,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.only(
+                                bottomLeft: Radius.circular(16),
+                                bottomRight: Radius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              '+ Add SMS',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   },
                   loading: () => const Padding(
@@ -296,41 +411,13 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
 
-                // Add SMS Button removed from here
+                // Add SMS Button removed from here (moved inside card)
               ],
             ),
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          DateTime? parsedEventDate;
-          try {
-            parsedEventDate = DateFormat(
-              'MMM dd, yyyy hh:mm a',
-            ).parse(widget.eventDate);
-          } catch (e) {
-            // print or handle error if needed
-          }
-
-          Navigator.of(context)
-              .push(
-                MaterialPageRoute(
-                  builder: (context) => AddSmsScreen(
-                    eventTitle: widget.eventTitle,
-                    eventId: widget.eventId,
-                    eventDate: parsedEventDate,
-                  ),
-                ),
-              )
-              .then((_) {
-                // Refreshes handled by provider watcher usually if invalidated, but explicit refresh ensures it
-                void _ = ref.refresh(eventSmsProvider(widget.eventId));
-              });
-        },
-        backgroundColor: const Color(0xFFFBB03B),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      // FAB removed to match mockup
     );
   }
 
@@ -382,42 +469,16 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
     // Scheduled items (even if set to 'draft' status when event is paused) should appear as cards with checkmarks.
     final isDraft = sms.status == SmsStatus.draft && sms.schedule_time == null;
 
-    // Container Decoration
-    final decoration = isDraft
-        ? const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-          )
-        : BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          );
-
     // Margin/Padding - drafts have minimal spacing, pending/sent have card padding
     final margin = isDraft
-        ? const EdgeInsets.all(0)
-        : EdgeInsets.only(
-            top: (index == 0 || prevIsDraft) ? 16 : 8,
-            left: 16,
-            right: 16,
-            bottom: (isLast || nextIsDraft) ? 16 : 8,
-          );
+        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 0)
+        : const EdgeInsets.symmetric(horizontal: 16, vertical: 6);
 
-    final padding = isDraft
-        ? const EdgeInsets.only(top: 16, left: 32, right: 32, bottom: 16)
-        : const EdgeInsets.all(16);
+    final isUnpublished = !_isActionsEnabled && sms.schedule_time != null;
+    const padding = EdgeInsets.all(16);
 
     return InkWell(
       onTap: () async {
-        // Navigate to Edit Screen (AddSmsScreen with existing SMS)
         DateTime? parsedEventDate;
         try {
           parsedEventDate = DateFormat(
@@ -437,14 +498,22 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
           ),
         );
         if (mounted) {
-          // ignore: unused_result
-          ref.refresh(eventSmsProvider(widget.eventId));
+          ref.invalidate(eventSmsProvider(widget.eventId));
         }
       },
       child: Container(
         margin: margin,
         padding: padding,
-        decoration: decoration,
+        decoration: isDraft
+            ? const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+              )
+            : BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white),
+              ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -456,32 +525,41 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                     sms.title?.isNotEmpty == true ? sms.title! : 'Untitled SMS',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, color: Colors.black87),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: isDraft || isUnpublished
+                          ? Colors.grey[400]
+                          : const Color(0xFF555555),
+                    ),
                   ),
                 ),
-                // Status Check Icon - only show for pending/sent, not draft
                 if (!isDraft)
                   Icon(
                     Icons.check_circle,
                     color: sms.status == SmsStatus.sent
                         ? const Color(0xFFFBB03B)
-                        : Colors.grey,
-                    // Original logic for reference:
-                    // color: _isActionsEnabled ? const Color(0xFFFBB03B) : Colors.grey,
-                    size: 20,
+                        : Colors.grey.shade400,
+                    size: 16,
                   ),
               ],
             ),
             const SizedBox(height: 8),
-            Divider(color: Colors.grey.shade200, height: 1),
+            const Divider(height: 1, color: Color(0xFFF1F1F1)),
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                Icon(
+                  Icons.calendar_month,
+                  size: 16,
+                  color: isDraft || isUnpublished
+                      ? Colors.grey[300]
+                      : Colors.grey[700],
+                ),
                 const SizedBox(width: 8),
                 Text(
                   dateStr,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 13, color: Colors.grey[400]),
                 ),
               ],
             ),

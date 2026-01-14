@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../../models/scheduled_group.dart';
@@ -23,7 +24,7 @@ class ScheduledDbHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -44,6 +45,7 @@ class ScheduledDbHelper {
         group_id INTEGER NOT NULL,
         title TEXT NOT NULL,
         frequency TEXT NOT NULL,
+        scheduled_day INTEGER,
         message TEXT NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,
         status TEXT DEFAULT 'pending',
@@ -108,6 +110,22 @@ class ScheduledDbHelper {
             "ALTER TABLE scheduled_messages ADD COLUMN scheduled_time TEXT",
           );
         } catch (_) {}
+      }
+    }
+    if (oldVersion < 5) {
+      try {
+        // Check if column exists first
+        var columns = await db.rawQuery(
+          'PRAGMA table_info(scheduled_messages)',
+        );
+        bool hasColumn = columns.any((c) => c['name'] == 'scheduled_day');
+        if (!hasColumn) {
+          await db.execute(
+            "ALTER TABLE scheduled_messages ADD COLUMN scheduled_day INTEGER",
+          );
+        }
+      } catch (e) {
+        debugPrint('Migration error: $e');
       }
     }
   }

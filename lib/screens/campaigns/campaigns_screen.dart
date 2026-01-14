@@ -86,7 +86,7 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                     const TextSpan(text: 'Event?\n\n'),
                     const TextSpan(
                       text:
-                          'Deleting this event will result in the following actions that you may want to consider before moving forward.',
+                          'Deleting  this event will result in the following actions that you may want to consider before moving forward.',
                     ),
                   ],
                 ),

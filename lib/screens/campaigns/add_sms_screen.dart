@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/sms.dart';
 import '../../providers/sms_provider.dart';
+import '../../widgets/variable_text_editor.dart';
 
 class AddSmsScreen extends ConsumerStatefulWidget {
   final String eventTitle;
@@ -674,97 +675,10 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
                     ),
 
                   // Body SMS Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Body SMS',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      // Add Customization Button
-                      PopupMenuButton<String>(
-                        color: Colors.white,
-                        surfaceTintColor: Colors.white,
-                        onSelected: (value) {
-                          String placeholder = '';
-                          switch (value) {
-                            case 'First Name':
-                              placeholder = '{{first_name}}';
-                              break;
-                            case 'Last Name':
-                              placeholder = '{{last_name}}';
-                              break;
-                            case 'Full Name':
-                              placeholder = '{{full_name}}';
-                              break;
-                          }
-
-                          if (placeholder.isNotEmpty) {
-                            String newText =
-                                "Subject: Thanks, your spot is saved!\n\n$placeholder\n\nThanks for registering for [your webinar name]!\nHere are the details of when we're starting:\nTime: {{ event_time | date: \"%B %d, %Y %I:%M%p (%Z)\" }}\n\nThe webinar link will be emailed to you on the day of the event :)\n\nHere's what I'll be covering in the webinar:\n[insert a numbered list or bullet points of the topics you'll be talking about in the live stream]\n\nTalk soon,\nYour Name";
-
-                            _bodyController.text = newText;
-
-                            // Restore focus
-                            _bodyFocusNode.requestFocus();
-                          }
-                        },
-                        itemBuilder: (BuildContext context) => [
-                          const PopupMenuItem(
-                            value: 'First Name',
-                            child: Text('First Name'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'Last Name',
-                            child: Text('Last Name'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'Full Name',
-                            child: Text('Full Name'),
-                          ),
-                        ],
-                        offset: const Offset(0, 40),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFBB03B),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                          child: const Text(
-                            'Add Customization',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: TextField(
-                      controller: _bodyController,
-                      focusNode: _bodyFocusNode,
-                      maxLines: 15,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.all(16),
-                      ),
-                      style: const TextStyle(fontSize: 14, height: 1.5),
-                    ),
+                  VariableTextEditor(
+                    label: 'Body SMS',
+                    controller: _bodyController,
+                    focusNode: _bodyFocusNode,
                   ),
                   const SizedBox(height: 16),
                 ],

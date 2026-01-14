@@ -107,6 +107,7 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
+                  minimumSize: const Size(80, 40), // Adjust size if needed
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 8,
@@ -114,7 +115,7 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                 ),
                 child: const Text(
                   'Save',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ),
@@ -245,6 +246,53 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                   }).toList(),
                 ),
               ),
+
+            if (_selectedFrequency == 'Monthly') ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const TextField(
+                        decoration: InputDecoration(
+                          hintText: '30th',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const TextField(
+                        decoration: InputDecoration(
+                          hintText: 'day of the month',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 24),
 
             // Body SMS Section
@@ -296,7 +344,7 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                 ),
                 child: const Text(
                   'Add Customization',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ),
             ),

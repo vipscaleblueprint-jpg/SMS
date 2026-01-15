@@ -6,8 +6,13 @@ import '../../utils/scheduling_utils.dart';
 
 class AddScheduledMessageScreen extends StatefulWidget {
   final ScheduledGroup group;
+  final ScheduledSms? messageToEdit;
 
-  const AddScheduledMessageScreen({super.key, required this.group});
+  const AddScheduledMessageScreen({
+    super.key,
+    required this.group,
+    this.messageToEdit,
+  });
 
   @override
   State<AddScheduledMessageScreen> createState() =>
@@ -24,6 +29,8 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
       TextEditingController();
   final ScrollController _monthlyScrollController = ScrollController();
   final ScrollController _weeklyScrollController = ScrollController();
+  final FocusNode _bodyFocusNode = FocusNode();
+  TextSelection _lastSelection = const TextSelection.collapsed(offset: -1);
 
   // Frequency State
   bool _isFrequencyDropdownOpen = false;
@@ -31,13 +38,40 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
   int? _selectedDay; // For monthly frequency
   final List<String> _frequencyOptions = ['Monthly', 'Weekly'];
 
+  final Map<String, String> _variables = {
+    'First Name': '{{first_name}}',
+    'Last Name': '{{last_name}}',
+    'Full Name': '{{full_name}}',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _bodyController.addListener(_handleSelectionChanged);
+    if (widget.messageToEdit != null) {
+      _titleController.text = widget.messageToEdit!.title;
+      _bodyController.text = widget.messageToEdit!.message;
+      _selectedFrequency = widget.messageToEdit!.frequency;
+      _selectedDay = widget.messageToEdit!.scheduledDay;
+    }
+  }
+
+  void _handleSelectionChanged() {
+    final selection = _bodyController.selection;
+    if (selection.isValid) {
+      _lastSelection = selection;
+    }
+  }
+
   @override
   void dispose() {
+    _bodyController.removeListener(_handleSelectionChanged);
     _titleController.dispose();
     _bodyController.dispose();
     _customizationController.dispose();
     _monthlyScrollController.dispose();
     _weeklyScrollController.dispose();
+    _bodyFocusNode.dispose();
     super.dispose();
   }
 
@@ -81,17 +115,23 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
         );
       }
 
-      final newMessage = ScheduledSms(
+      final sms = ScheduledSms(
+        id: widget.messageToEdit?.id,
         groupId: widget.group.id!,
         title: _titleController.text,
         frequency: _selectedFrequency!,
         scheduledDay: _selectedDay,
         message: _bodyController.text,
         scheduledTime: scheduledTime,
+        status: widget.messageToEdit?.status ?? 'pending',
       );
 
       // Save to DB
-      await ScheduledDbHelper().insertMessage(newMessage);
+      if (widget.messageToEdit != null) {
+        await ScheduledDbHelper().updateMessage(sms);
+      } else {
+        await ScheduledDbHelper().insertMessage(sms);
+      }
 
       if (mounted) {
         Navigator.of(context).pop(true); // Return true to trigger refresh
@@ -192,6 +232,8 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 24),
+
                   const SizedBox(height: 24),
 
                   // Frequency Field
@@ -363,46 +405,22 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                           _selectedDay = null; // Reset to show picker again
                         });
                       },
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '$_selectedDay${SchedulingUtils.getDaySuffix(_selectedDay!)}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$_selectedDay${SchedulingUtils.getDaySuffix(_selectedDay!)} day of the month',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'day of the month',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
@@ -473,46 +491,22 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                           _selectedDay = null; // Reset to show picker again
                         });
                       },
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  SchedulingUtils.weekDays[_selectedDay! - 1],
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${SchedulingUtils.weekDays[_selectedDay! - 1]} of the week',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  ' of the week',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
@@ -537,6 +531,7 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                     ),
                     child: TextField(
                       controller: _bodyController,
+                      focusNode: _bodyFocusNode,
                       maxLines: null,
                       expands: true,
                       decoration: const InputDecoration(
@@ -548,30 +543,74 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Customization Section (Bottom Right Button and Input)
+                  // Customization Section (PopupMenuButton for variables)
                   Align(
                     alignment: Alignment.centerRight,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // TODO: Add Customization Logic (e.g., Popup menu or append to text)
+                    child: PopupMenuButton<String>(
+                      color: Colors.white,
+                      surfaceTintColor: Colors.white,
+                      onSelected: (value) {
+                        final placeholder = _variables[value] ?? '';
+                        if (placeholder.isNotEmpty) {
+                          final text = _bodyController.text;
+
+                          // Use _lastSelection if valid, otherwise try current controller selection
+                          TextSelection selection = _lastSelection;
+                          if (!selection.isValid) {
+                            selection = _bodyController.selection;
+                          }
+
+                          int start = selection.start;
+                          int end = selection.end;
+
+                          // Safety checks for bounds
+                          if (start < 0 || start > text.length)
+                            start = text.length;
+                          if (end < 0 || end > text.length) end = text.length;
+                          if (end < start) end = start;
+
+                          final newText = text.replaceRange(
+                            start,
+                            end,
+                            placeholder,
+                          );
+
+                          _bodyController.value = TextEditingValue(
+                            text: newText,
+                            selection: TextSelection.collapsed(
+                              offset: start + placeholder.length,
+                            ),
+                          );
+
+                          // Restore focus
+                          _bodyFocusNode.requestFocus();
+                        }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFBB03B),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
+                      itemBuilder: (BuildContext context) {
+                        return _variables.keys.map((String key) {
+                          return PopupMenuItem<String>(
+                            value: key,
+                            child: Text(key),
+                          );
+                        }).toList();
+                      },
+                      offset: const Offset(0, 40),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBB03B),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
                         ),
-                      ),
-                      child: const Text(
-                        'Add Customization',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                        child: const Text(
+                          'Add Customization',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),

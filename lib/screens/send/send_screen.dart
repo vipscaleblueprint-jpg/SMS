@@ -31,6 +31,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     });
   }
 
+  @override
   void dispose() {
     _recipientController.dispose();
     _messageController.dispose();

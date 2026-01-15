@@ -15,7 +15,7 @@ class ScheduledDetailScreen extends StatefulWidget {
 }
 
 class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
-  bool _isScheduledEnabled = true;
+  late bool _isScheduledEnabled;
   List<ScheduledSms> _messages = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
@@ -24,6 +24,7 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _isScheduledEnabled = widget.group.isActive;
     _loadMessages();
     _searchController.addListener(() {
       setState(() {
@@ -44,6 +45,19 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
       final msgs = await ScheduledDbHelper().getMessagesByGroupId(
         widget.group.id!,
       );
+      msgs.sort((a, b) {
+        final isDraftA = a.status == 'draft';
+        final isDraftB = b.status == 'draft';
+        if (isDraftA && !isDraftB) return -1;
+        if (!isDraftA && isDraftB) return 1;
+
+        final dateA = a.scheduledTime;
+        final dateB = b.scheduledTime;
+        if (dateA == null && dateB == null) return 0;
+        if (dateA == null) return 1;
+        if (dateB == null) return -1;
+        return dateA.compareTo(dateB);
+      });
       setState(() {
         _messages = msgs;
         _isLoading = false;
@@ -51,6 +65,32 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
     } else {
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _toggleGroupStatus(bool value) async {
+    if (widget.group.id == null) return;
+
+    final updatedGroup = ScheduledGroup(
+      id: widget.group.id,
+      title: widget.group.title,
+      isActive: value,
+    );
+
+    // Update group status
+    await ScheduledDbHelper().updateGroup(updatedGroup);
+
+    // Update all non-sent messages status
+    await ScheduledDbHelper().updateMessageStatusByGroup(
+      widget.group.id!,
+      value ? 'pending' : 'draft',
+    );
+
+    setState(() {
+      _isScheduledEnabled = value;
+    });
+
+    // Refresh messages to show updated statuses
+    _loadMessages();
   }
 
   @override
@@ -96,7 +136,7 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
                 ),
                 child: const Text(
                   'Save',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ),
@@ -139,10 +179,11 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
                       ),
                       Switch(
                         value: _isScheduledEnabled,
-                        onChanged: (value) =>
-                            setState(() => _isScheduledEnabled = value),
+                        onChanged: _toggleGroupStatus,
                         activeColor: Colors.white,
                         activeTrackColor: const Color(0xFFFBB03B),
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: Colors.grey.shade400,
                       ),
                     ],
                   ),
@@ -278,10 +319,6 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
   }
 
   Widget _buildMessageItem({required ScheduledSms message}) {
-    Color checkColor = message.status == 'sent'
-        ? const Color(0xFFFBB03B)
-        : Colors.grey.shade400;
-
     String dateText = '';
     if (message.status == 'draft') {
       dateText = 'Draft';
@@ -294,49 +331,95 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
       dateText = message.frequency;
     }
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white), // Subtle border
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                message.title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF555555), // Slightly muted black
-                ),
-              ),
-              if (message.status != 'draft')
-                Icon(Icons.check_circle, size: 16, color: checkColor),
-            ],
+    final isDraft = message.status == 'draft';
+    final isUnpublished = !_isScheduledEnabled;
+
+    final margin = isDraft
+        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 0)
+        : const EdgeInsets.symmetric(horizontal: 16, vertical: 6);
+
+    final padding = isDraft
+        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
+        : const EdgeInsets.all(16);
+
+    return InkWell(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddScheduledMessageScreen(
+              group: widget.group,
+              messageToEdit: message,
+            ),
           ),
-          const SizedBox(height: 8),
-          const Divider(height: 1, color: Color(0xFFF1F1F1)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.calendar_month, size: 16, color: Colors.grey[700]),
-              const SizedBox(width: 8),
-              Text(
-                dateText,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[400], // Match mockup muted date
-                ),
+        );
+        _loadMessages();
+      },
+      child: Container(
+        margin: margin,
+        padding: padding,
+        decoration: isDraft
+            ? const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFF1F1F1))),
+              )
+            : BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade200),
               ),
-            ],
-          ),
-        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  message.title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: isDraft || isUnpublished
+                        ? Colors.grey[400]
+                        : const Color(0xFF555555),
+                  ),
+                ),
+                if (!isDraft)
+                  Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: message.status == 'sent'
+                        ? (isUnpublished
+                              ? Colors.grey.shade400
+                              : const Color(0xFFFBB03B))
+                        : Colors.grey.shade400,
+                  ),
+              ],
+            ),
+            if (!isDraft) ...[
+              const SizedBox(height: 8),
+              const Divider(height: 1, color: Color(0xFFF1F1F1)),
+              const SizedBox(height: 8),
+            ] else
+              const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_month,
+                  size: 16,
+                  color: isDraft || isUnpublished
+                      ? Colors.grey[300]
+                      : Colors.grey[700],
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  dateText,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

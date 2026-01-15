@@ -8,6 +8,8 @@ class ScheduledSms {
   final bool isActive;
   final String status; // 'draft', 'pending', 'sent'
   final DateTime? scheduledTime;
+  final Set<String> contactIds;
+  final Set<String> tagIds;
 
   ScheduledSms({
     this.id,
@@ -19,6 +21,8 @@ class ScheduledSms {
     this.isActive = true,
     this.status = 'pending',
     this.scheduledTime,
+    this.contactIds = const {},
+    this.tagIds = const {},
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +36,10 @@ class ScheduledSms {
       'is_active': isActive ? 1 : 0,
       'status': status,
       'scheduled_time': scheduledTime?.toIso8601String(),
+      'contact_ids': contactIds.isNotEmpty
+          ? contactIds.toList().join(',')
+          : null,
+      'tag_ids': tagIds.isNotEmpty ? tagIds.toList().join(',') : null,
     };
   }
 
@@ -48,6 +56,12 @@ class ScheduledSms {
       scheduledTime: map['scheduled_time'] != null
           ? DateTime.parse(map['scheduled_time'] as String)
           : null,
+      contactIds: map['contact_ids'] != null
+          ? (map['contact_ids'] as String).split(',').toSet()
+          : {},
+      tagIds: map['tag_ids'] != null
+          ? (map['tag_ids'] as String).split(',').toSet()
+          : {},
     );
   }
 }

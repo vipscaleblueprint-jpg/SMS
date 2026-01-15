@@ -168,6 +168,65 @@ class ContactDbHelper {
     return contacts;
   }
 
+  Future<List<Contact>> getContactsByIds(List<String> ids) async {
+    final db = await database;
+    if (ids.isEmpty) return [];
+
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final contactRows = await db.query(
+      'contacts',
+      where: 'contact_id IN ($placeholders)',
+      whereArgs: ids,
+    );
+
+    final List<Contact> contacts = [];
+    for (final row in contactRows) {
+      final tags = await _getTagsForContact(row['contact_id'] as String);
+      contacts.add(
+        Contact(
+          contact_id: row['contact_id'] as String,
+          first_name: row['first_name'] as String,
+          last_name: row['last_name'] as String,
+          email: row['email'] as String?,
+          phone: row['phone'] as String,
+          created: DateTime.parse(row['created'] as String),
+          tags: tags,
+        ),
+      );
+    }
+    return contacts;
+  }
+
+  Future<List<Contact>> getContactsByTagIds(List<String> tagIds) async {
+    final db = await database;
+    if (tagIds.isEmpty) return [];
+
+    final placeholders = List.filled(tagIds.length, '?').join(',');
+    final contactRows = await db.rawQuery('''
+      SELECT DISTINCT c.*
+      FROM contacts c
+      INNER JOIN contact_tags ct ON ct.contact_id = c.contact_id
+      WHERE ct.tag_id IN ($placeholders)
+      ''', tagIds);
+
+    final List<Contact> contacts = [];
+    for (final row in contactRows) {
+      final tags = await _getTagsForContact(row['contact_id'] as String);
+      contacts.add(
+        Contact(
+          contact_id: row['contact_id'] as String,
+          first_name: row['first_name'] as String,
+          last_name: row['last_name'] as String,
+          email: row['email'] as String?,
+          phone: row['phone'] as String,
+          created: DateTime.parse(row['created'] as String),
+          tags: tags,
+        ),
+      );
+    }
+    return contacts;
+  }
+
   Future<List<Tag>> getAllTags() async {
     final db = await database;
     final rows = await db.query('tags', orderBy: 'name ASC');

@@ -24,7 +24,7 @@ class ScheduledDbHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -35,7 +35,9 @@ class ScheduledDbHelper {
       CREATE TABLE scheduled_groups(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
-        is_active INTEGER NOT NULL DEFAULT 1
+        is_active INTEGER NOT NULL DEFAULT 1,
+        contact_ids TEXT,
+        tag_ids TEXT
       )
     ''');
 
@@ -50,12 +52,42 @@ class ScheduledDbHelper {
         is_active INTEGER NOT NULL DEFAULT 1,
         status TEXT DEFAULT 'pending',
         scheduled_time TEXT,
+        contact_ids TEXT,
+        tag_ids TEXT,
         FOREIGN KEY (group_id) REFERENCES scheduled_groups (id) ON DELETE CASCADE
       )
     ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 7) {
+      // Add contact_ids and tag_ids to scheduled_groups
+      try {
+        await db.execute(
+          'ALTER TABLE scheduled_groups ADD COLUMN contact_ids TEXT',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE scheduled_groups ADD COLUMN tag_ids TEXT',
+        );
+      } catch (_) {}
+    }
+
+    if (oldVersion < 6) {
+      // Add contact_ids and tag_ids if they don't exist
+      try {
+        await db.execute(
+          'ALTER TABLE scheduled_messages ADD COLUMN contact_ids TEXT',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE scheduled_messages ADD COLUMN tag_ids TEXT',
+        );
+      } catch (_) {}
+    }
+
     if (oldVersion < 2) {
       await db.execute('''
         CREATE TABLE scheduled_messages(
@@ -149,6 +181,18 @@ class ScheduledDbHelper {
     });
   }
 
+  Future<ScheduledGroup?> getGroupById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'scheduled_groups',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (maps.isEmpty) return null;
+    return ScheduledGroup.fromMap(maps.first);
+  }
+
   Future<int> updateGroup(ScheduledGroup group) async {
     final db = await database;
     return await db.update(
@@ -197,6 +241,28 @@ class ScheduledDbHelper {
     });
   }
 
+  Future<List<ScheduledSms>> getDueMessages(DateTime now) async {
+    final db = await database;
+
+    // Join with scheduled_groups to ensure the group is active (published)
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      '''
+      SELECT m.* 
+      FROM scheduled_messages m
+      INNER JOIN scheduled_groups g ON m.group_id = g.id
+      WHERE m.status = 'pending' 
+        AND m.is_active = 1 
+        AND g.is_active = 1
+        AND m.scheduled_time <= ?
+    ''',
+      [now.toIso8601String()],
+    );
+
+    return List.generate(maps.length, (i) {
+      return ScheduledSms.fromMap(maps[i]);
+    });
+  }
+
   Future<int> deleteMessage(int id) async {
     final db = await database;
     return await db.delete(
@@ -204,5 +270,52 @@ class ScheduledDbHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<int> updateMessage(ScheduledSms message) async {
+    final db = await database;
+    return await db.update(
+      'scheduled_messages',
+      message.toMap(),
+      where: 'id = ?',
+      whereArgs: [message.id],
+    );
+  }
+
+  Future<int> updateMessageStatusByGroup(int groupId, String status) async {
+    final db = await database;
+    return await db.update(
+      'scheduled_messages',
+      {'status': status},
+      where: 'group_id = ? AND status != ?',
+      whereArgs: [groupId, 'sent'], // Don't change status of sent messages
+    );
+  }
+
+  Future<void> deleteMessages(List<int> ids) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final id in ids) {
+        await txn.delete(
+          'scheduled_messages',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+  }
+
+  Future<void> updateMessagesStatus(List<int> ids, String status) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final id in ids) {
+        await txn.update(
+          'scheduled_messages',
+          {'status': status},
+          where: 'id = ? AND status != ?',
+          whereArgs: [id, 'sent'],
+        );
+      }
+    });
   }
 }

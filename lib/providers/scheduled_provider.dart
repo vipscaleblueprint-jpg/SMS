@@ -17,8 +17,16 @@ class ScheduledGroupsNotifier extends StateNotifier<List<ScheduledGroup>> {
     state = groups.reversed.toList();
   }
 
-  Future<void> addGroup(String title) async {
-    final newGroup = ScheduledGroup(title: title);
+  Future<void> addGroup(
+    String title, {
+    Set<String> contactIds = const {},
+    Set<String> tagIds = const {},
+  }) async {
+    final newGroup = ScheduledGroup(
+      title: title,
+      contactIds: contactIds,
+      tagIds: tagIds,
+    );
     await ScheduledDbHelper().insertGroup(newGroup);
     await loadGroups();
   }

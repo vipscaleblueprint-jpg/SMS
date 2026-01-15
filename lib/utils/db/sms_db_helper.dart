@@ -74,6 +74,20 @@ class SmsDbHelper {
     });
   }
 
+  Future<List<Sms>> getDueOneTimeMessages(DateTime now) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sms',
+      where:
+          "status = 'pending' AND schedule_time IS NOT NULL AND schedule_time <= ?",
+      whereArgs: [now.toIso8601String()],
+    );
+
+    return List.generate(maps.length, (i) {
+      return Sms.fromMap(maps[i]);
+    });
+  }
+
   Future<List<Sms>> getSmsByEventId(int eventId) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(

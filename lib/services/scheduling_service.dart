@@ -4,9 +4,55 @@ import '../models/contact.dart';
 import '../models/scheduled_sms.dart';
 import '../utils/db/contact_db_helper.dart';
 import '../utils/db/scheduled_db_helper.dart';
+import '../utils/db/sms_db_helper.dart';
 import '../utils/scheduling_utils.dart';
+import '../models/sms.dart' as sms_model;
 import 'sms_service.dart';
 
+@pragma('vm:entry-point')
+void dispatcher() async {
+  final now = DateTime.now();
+  debugPrint('⏰ Background check at $now');
+
+  final dbHelper = ScheduledDbHelper();
+  final oneTimeDbHelper = SmsDbHelper();
+  final contactDb = ContactDbHelper.instance;
+
+  try {
+    // 1. Process Campaign Messages (Recurring)
+    final dueMessages = await dbHelper.getDueMessages(now);
+    if (dueMessages.isNotEmpty) {
+      debugPrint('Found ${dueMessages.length} due campaign messages.');
+      final smsService = SmsService();
+      for (final msg in dueMessages) {
+        await SchedulingService.processMessage(
+          msg,
+          dbHelper,
+          contactDb,
+          smsService,
+        );
+      }
+    }
+
+    // 2. Process One-Time Scheduled Messages (SendScreen)
+    final dueOneTime = await oneTimeDbHelper.getDueOneTimeMessages(now);
+    if (dueOneTime.isNotEmpty) {
+      debugPrint('Found ${dueOneTime.length} due one-time messages.');
+      final smsService = SmsService();
+      for (final msg in dueOneTime) {
+        await SchedulingService.processOneTimeMessage(
+          msg,
+          oneTimeDbHelper,
+          smsService,
+        );
+      }
+    }
+  } catch (e) {
+    debugPrint('❌ Error in background dispatcher: $e');
+  }
+}
+
+@pragma('vm:entry-point')
 class SchedulingService {
   static const int _alarmId = 1000;
 
@@ -27,33 +73,57 @@ class SchedulingService {
     debugPrint('🚀 Scheduling Service started (periodic check every 1 min)');
   }
 
-  @pragma('vm:entry-point')
-  static void dispatcher() async {
-    final now = DateTime.now();
-    debugPrint('⏰ Background check at $now');
-
-    final dbHelper = ScheduledDbHelper();
-    final contactDb = ContactDbHelper.instance;
-    final smsService = SmsService();
+  static Future<void> processOneTimeMessage(
+    sms_model.Sms msg,
+    SmsDbHelper dbHelper,
+    SmsService smsService,
+  ) async {
+    debugPrint('Processing One-Time: ${msg.id} for ${msg.phone_number}');
+    if (msg.phone_number == null) return;
 
     try {
-      final dueMessages = await dbHelper.getDueMessages(now);
-      if (dueMessages.isEmpty) {
-        debugPrint('No due messages found.');
-        return;
-      }
+      // Send the SMS
+      await smsService.sendSms(
+        address: msg.phone_number!,
+        message: msg.message,
+        contactId: msg.contact_id,
+      );
 
-      debugPrint('Found ${dueMessages.length} due messages.');
-
-      for (final msg in dueMessages) {
-        await _processMessage(msg, dbHelper, contactDb, smsService);
-      }
+      // Update status to sent
+      final updatedSms = sms_model.Sms(
+        id: msg.id,
+        title: msg.title,
+        message: msg.message,
+        contact_id: msg.contact_id,
+        phone_number: msg.phone_number,
+        sender_number: msg.sender_number,
+        status: sms_model.SmsStatus.sent,
+        sentTimeStamps: DateTime.now(),
+        schedule_time: msg.schedule_time,
+        event_id: msg.event_id,
+      );
+      await dbHelper.updateSms(updatedSms);
+      debugPrint('✅ One-time message ${msg.id} sent and updated.');
     } catch (e) {
-      debugPrint('❌ Error in background dispatcher: $e');
+      debugPrint('❌ Error processing one-time message ${msg.id}: $e');
+      // Update status to failed
+      final failedSms = sms_model.Sms(
+        id: msg.id,
+        title: msg.title,
+        message: msg.message,
+        contact_id: msg.contact_id,
+        phone_number: msg.phone_number,
+        sender_number: msg.sender_number,
+        status: sms_model.SmsStatus.failed,
+        sentTimeStamps: msg.sentTimeStamps,
+        schedule_time: msg.schedule_time,
+        event_id: msg.event_id,
+      );
+      await dbHelper.updateSms(failedSms);
     }
   }
 
-  static Future<void> _processMessage(
+  static Future<void> processMessage(
     ScheduledSms msg,
     ScheduledDbHelper dbHelper,
     ContactDbHelper contactDb,

@@ -37,7 +37,7 @@ class SchedulingDebugPanel extends StatelessWidget {
   Future<void> _triggerManualDispatch(BuildContext context) async {
     try {
       // Manually trigger the dispatcher
-      SchedulingService.dispatcher();
+      dispatcher();
 
       if (!context.mounted) return;
 

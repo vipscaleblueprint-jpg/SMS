@@ -29,6 +29,8 @@ class SmsService {
     required String address,
     required String message,
     String? contactId,
+    String? batchId,
+    int? batchTotal,
   }) async {
     SmsStatus status = SmsStatus.pending;
     try {
@@ -46,6 +48,8 @@ class SmsService {
           message: message,
           status: status,
           sentTimeStamps: status == SmsStatus.sent ? DateTime.now() : null,
+          batchId: batchId,
+          batchTotal: batchTotal,
         );
         await SmsDbHelper().insertSms(sms);
       } catch (dbError) {
@@ -67,11 +71,18 @@ class SmsService {
     Duration delay = const Duration(milliseconds: 200),
   }) async* {
     int sentCount = 0;
+    final batchId = 'batch_${DateTime.now().millisecondsSinceEpoch}';
+    final batchTotal = recipients.length;
     for (final recipient in recipients) {
       if (recipient.trim().isEmpty) continue;
 
       try {
-        await sendSms(address: recipient, message: message);
+        await sendSms(
+          address: recipient,
+          message: message,
+          batchId: batchId,
+          batchTotal: batchTotal,
+        );
         // Small delay to be safe/polite to the OS/network
         await Future.delayed(delay);
       } catch (e) {
@@ -96,6 +107,8 @@ class SmsService {
     Duration delay = const Duration(milliseconds: 200),
   }) async* {
     int sentCount = 0;
+    final batchId = 'batch_${DateTime.now().millisecondsSinceEpoch}';
+    final batchTotal = contacts.length;
     for (final contact in contacts) {
       // Reuse sendFlexibleSms logic for substitution and sending
       try {
@@ -105,6 +118,8 @@ class SmsService {
           instant: instant,
           scheduledTime: scheduledTime,
           simSlot: simSlot,
+          batchId: batchId,
+          batchTotal: batchTotal,
         );
         // Small delay between sends if instant
         if (instant) {
@@ -125,6 +140,8 @@ class SmsService {
     bool instant = true,
     DateTime? scheduledTime,
     int simSlot = 1,
+    String? batchId,
+    int? batchTotal,
   }) async {
     debugPrint(
       '🔵 sendFlexibleSms called - instant: $instant, scheduledTime: $scheduledTime',
@@ -144,12 +161,16 @@ class SmsService {
           address: contact.phone,
           message: finalMessage,
           contactId: contact.contact_id,
+          batchId: batchId,
+          batchTotal: batchTotal,
         );
       } else if (simSlot == 2) {
         await sendSms(
           address: contact.phone,
           message: finalMessage,
           contactId: contact.contact_id,
+          batchId: batchId,
+          batchTotal: batchTotal,
         );
       }
     } else if (scheduledTime != null) {
@@ -174,6 +195,8 @@ class SmsService {
             message: finalMessage,
             status: SmsStatus.pending,
             schedule_time: scheduledTime,
+            batchId: batchId,
+            batchTotal: batchTotal,
           );
           await SmsDbHelper().insertSms(sms);
           debugPrint(

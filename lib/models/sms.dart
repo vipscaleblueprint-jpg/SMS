@@ -16,6 +16,8 @@ class Sms {
   final DateTime? sentTimeStamps;
   final DateTime? schedule_time;
   final int? event_id;
+  final String? batchId;
+  final int? batchTotal;
 
   Sms({
     this.id,
@@ -28,6 +30,8 @@ class Sms {
     this.sentTimeStamps,
     this.schedule_time,
     this.event_id,
+    this.batchId,
+    this.batchTotal,
   });
 
   Map<String, dynamic> toMap() {
@@ -42,6 +46,8 @@ class Sms {
       'sentTimeStamps': sentTimeStamps?.toIso8601String(),
       'schedule_time': schedule_time?.toIso8601String(),
       'event_id': event_id,
+      'batchId': batchId,
+      'batchTotal': batchTotal,
     };
   }
 
@@ -80,6 +86,8 @@ class Sms {
           ? DateTime.parse(map['schedule_time'] as String)
           : null,
       event_id: map['event_id'] as int?,
+      batchId: map['batchId'] as String?,
+      batchTotal: map['batchTotal'] as int?,
     );
   }
 }

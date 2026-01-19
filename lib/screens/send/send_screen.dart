@@ -395,6 +395,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             child: messages.isEmpty
                 ? const SizedBox.shrink()
                 : ListView.builder(
+                    reverse: true,
                     padding: const EdgeInsets.all(20),
                     itemCount: messages.length,
                     itemBuilder: (context, index) {

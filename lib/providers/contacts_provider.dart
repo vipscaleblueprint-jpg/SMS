@@ -5,9 +5,11 @@ import 'tags_provider.dart';
 import '../models/contact.dart';
 import '../models/tag.dart';
 import '../utils/db/contact_db_helper.dart';
+import '../services/sequence_service.dart';
 
 class ContactsNotifier extends Notifier<List<Contact>> {
   final _db = ContactDbHelper.instance;
+  final _sequenceService = SequenceService();
 
   @override
   List<Contact> build() {
@@ -30,12 +32,14 @@ class ContactsNotifier extends Notifier<List<Contact>> {
 
   Future<void> addContact(Contact contact) async {
     await _db.insertContact(contact);
+    await _sequenceService.syncSubscriptions(contact);
     await _loadContacts();
   }
 
   Future<void> addContacts(List<Contact> contacts) async {
     for (final contact in contacts) {
       await _db.insertContact(contact);
+      await _sequenceService.syncSubscriptions(contact);
     }
     await _loadContacts();
   }
@@ -70,6 +74,7 @@ class ContactsNotifier extends Notifier<List<Contact>> {
 
       for (final contact in fetchedContacts) {
         await _db.insertContact(contact);
+        await _sequenceService.syncSubscriptions(contact);
       }
       await _loadContacts();
       return fetchedContacts.length;
@@ -84,6 +89,7 @@ class ContactsNotifier extends Notifier<List<Contact>> {
 
   Future<void> updateContact(Contact contact) async {
     await _db.updateContact(contact);
+    await _sequenceService.syncSubscriptions(contact);
     await _loadContacts();
   }
 

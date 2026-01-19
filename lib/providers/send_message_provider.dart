@@ -5,6 +5,8 @@ import '../services/sms_service.dart';
 import 'contacts_provider.dart';
 import 'tags_provider.dart';
 import '../models/contact.dart';
+import '../models/sms.dart';
+import '../utils/db/sms_db_helper.dart';
 
 // Message Model
 class Message {
@@ -74,7 +76,30 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
         sub.cancel();
       }
     });
+
+    // Load history asynchronously
+    _loadHistory();
+
     return SendMessageState();
+  }
+
+  Future<void> _loadHistory() async {
+    final history = await SmsDbHelper().getGroupedSmsHistory();
+    final uiMessages = history
+        .map(
+          (s) => Message(
+            id: s.batchId ?? s.id?.toString() ?? DateTime.now().toString(),
+            text: s.message,
+            timestamp: s.sentTimeStamps ?? s.schedule_time ?? DateTime.now(),
+            scheduledTime: s.schedule_time,
+            currentSent: s.status == SmsStatus.sent ? (s.batchTotal ?? 1) : 0,
+            totalToSend: s.batchTotal ?? 1,
+            isCompleted: s.status == SmsStatus.sent,
+          ),
+        )
+        .toList();
+
+    state = state.copyWith(messages: uiMessages);
   }
 
   void toggleContact(String contactId) {

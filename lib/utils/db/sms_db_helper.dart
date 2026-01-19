@@ -22,7 +22,7 @@ class SmsDbHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -40,7 +40,9 @@ class SmsDbHelper {
         status TEXT NOT NULL, 
         sentTimeStamps TEXT,
         schedule_time TEXT,
-        event_id INTEGER
+        event_id INTEGER,
+        batchId TEXT,
+        batchTotal INTEGER
       )
     ''');
   }
@@ -53,6 +55,15 @@ class SmsDbHelper {
     } else if (oldVersion < 4) {
       // Version 3 to 4: Add title column
       await db.execute('ALTER TABLE sms ADD COLUMN title TEXT');
+    }
+    if (oldVersion < 5) {
+      // Version 4 to 5: Add batchId and batchTotal columns
+      try {
+        await db.execute('ALTER TABLE sms ADD COLUMN batchId TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE sms ADD COLUMN batchTotal INTEGER');
+      } catch (_) {}
     }
   }
 
@@ -119,5 +130,36 @@ class SmsDbHelper {
   Future<void> deleteAllSms() async {
     final db = await database;
     await db.delete('sms');
+  }
+
+  Future<List<Sms>> getGroupedSmsHistory() async {
+    final db = await database;
+    // We want the most recent messages, but if they have a batchId, we only want one per batchId
+    // If batchId is null, we treat it as an individual message.
+
+    // This is a bit complex in SQL to do perfectly, so we'll do some post-processing or a subquery.
+    // Let's get them all and then unique them by batchId in Dart for now, or use a GROUP BY if simple enough.
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sms',
+      orderBy: 'id DESC',
+    );
+
+    final List<Sms> allHistory = maps.map((m) => Sms.fromMap(m)).toList();
+    final List<Sms> groupedHistory = [];
+    final Set<String> seenBatchIds = {};
+
+    for (final sms in allHistory) {
+      if (sms.batchId == null) {
+        groupedHistory.add(sms);
+      } else {
+        if (!seenBatchIds.contains(sms.batchId)) {
+          groupedHistory.add(sms);
+          seenBatchIds.add(sms.batchId!);
+        }
+      }
+    }
+
+    return groupedHistory;
   }
 }

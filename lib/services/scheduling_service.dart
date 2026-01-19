@@ -47,6 +47,8 @@ void dispatcher() async {
         );
       }
     }
+    // 3. Process Master Sequences (Drip)
+    await SchedulingService.processSequences(dbHelper, contactDb, SmsService());
   } catch (e) {
     debugPrint('❌ Error in background dispatcher: $e');
   }
@@ -79,7 +81,22 @@ class SchedulingService {
     SmsService smsService,
   ) async {
     debugPrint('Processing One-Time: ${msg.id} for ${msg.phone_number}');
-    if (msg.phone_number == null) return;
+    if (msg.phone_number == null) {
+      debugPrint(
+        '⚠️ Missing phone number for message ${msg.id}. Marking as failed.',
+      );
+      final failedSms = sms_model.Sms(
+        id: msg.id,
+        title: msg.title,
+        message: msg.message,
+        contact_id: msg.contact_id,
+        phone_number: null,
+        status: sms_model.SmsStatus.failed,
+        schedule_time: msg.schedule_time,
+      );
+      await dbHelper.updateSms(failedSms);
+      return;
+    }
 
     try {
       // Send the SMS
@@ -217,6 +234,84 @@ class SchedulingService {
       debugPrint('✅ Message ${msg.id} processed. Next run: $nextRun');
     } catch (e) {
       debugPrint('❌ Error processing message ${msg.id}: $e');
+    }
+  }
+
+  static Future<void> processSequences(
+    ScheduledDbHelper dbHelper,
+    ContactDbHelper contactDb,
+    SmsService smsService,
+  ) async {
+    debugPrint('Processing Master Sequences...');
+    try {
+      final subscriptions = await dbHelper.getSubscriptions();
+      debugPrint(
+        'Found ${subscriptions.length} active sequence subscriptions.',
+      );
+      final now = DateTime.now();
+
+      for (final sub in subscriptions) {
+        debugPrint(
+          'Checking subscription ${sub.id} (Sequence ${sub.sequenceId}) for contact ${sub.contactId}',
+        );
+        // Find messages for this sequence
+        final messages = await dbHelper.getSequenceMessages(sub.sequenceId);
+        debugPrint(
+          'Sequence ${sub.sequenceId} has ${messages.length} messages.',
+        );
+
+        for (final msg in messages) {
+          final dueAt = sub.subscribedAt.add(Duration(days: msg.delayDays));
+          final isDue = now.isAfter(dueAt);
+          debugPrint(
+            '-- Message "${msg.title}" (Delay: ${msg.delayDays} days) - Due at: $dueAt - IsDue: $isDue',
+          );
+
+          if (isDue) {
+            // Check if already sent
+            final alreadySent = await dbHelper.hasSentSequenceMessage(
+              sub.id!,
+              msg.id!,
+            );
+
+            if (!alreadySent) {
+              debugPrint(
+                '🚀 Sending drip message: ${msg.title} to contact ${sub.contactId}',
+              );
+
+              debugPrint('Attempting to resolve contact ${sub.contactId}...');
+              // Resolve contact
+              final contacts = await contactDb.getContactsByIds([
+                sub.contactId,
+              ]);
+              debugPrint('Resolved contacts: ${contacts.length}');
+
+              if (contacts.isNotEmpty) {
+                final contact = contacts.first;
+                debugPrint(
+                  'Contact found: ${contact.name}, Phone: ${contact.phone}. Calling sendFlexibleSms...',
+                );
+
+                try {
+                  await smsService.sendFlexibleSms(
+                    contact: contact,
+                    message: msg.message,
+                    instant: true,
+                  );
+
+                  // Log as sent
+                  await dbHelper.insertSequenceLog(sub.id!, msg.id!);
+                  debugPrint('✅ Drip message ${msg.id} logged as sent.');
+                } catch (e) {
+                  debugPrint('Failed to send drip to ${contact.phone}: $e');
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error processing sequences: $e');
     }
   }
 }

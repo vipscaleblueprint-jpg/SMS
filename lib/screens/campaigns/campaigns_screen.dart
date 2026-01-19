@@ -9,6 +9,7 @@ import 'event_actions_screen.dart';
 import '../../widgets/modals/campaign_dialog.dart';
 import '../../widgets/list/events_list.dart';
 import '../../widgets/header_user.dart';
+import 'master_sequence_screen.dart';
 
 class CampaignsScreen extends ConsumerStatefulWidget {
   const CampaignsScreen({super.key});
@@ -203,20 +204,48 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        ElevatedButton(
-                          onPressed: _showAddEventDialog,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFBB03B),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
+                        Row(
+                          children: [
+                            ElevatedButton(
+                              onPressed: () {
+                                // Navigate to MasterSequenceScreen
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const MasterSequenceScreen(),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFFF0D6),
+                                foregroundColor: const Color(0xFFFBB03B),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: const Text(
+                                'Sequences',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                             ),
-                          ),
-                          child: const Text(
-                            'Add Event',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: _showAddEventDialog,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFBB03B),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: const Text(
+                                'Add Event',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

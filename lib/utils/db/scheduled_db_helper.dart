@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../../models/scheduled_group.dart';
 import '../../models/scheduled_sms.dart';
+import '../../models/master_sequence.dart';
 
 class ScheduledDbHelper {
   static final ScheduledDbHelper _instance = ScheduledDbHelper._internal();
@@ -24,7 +25,7 @@ class ScheduledDbHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -57,9 +58,93 @@ class ScheduledDbHelper {
         FOREIGN KEY (group_id) REFERENCES scheduled_groups (id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE master_sequences(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        tag_id TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE sequence_messages(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sequence_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        delay_days INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (sequence_id) REFERENCES master_sequences (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE sequence_subscriptions(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contact_id TEXT NOT NULL,
+        sequence_id INTEGER NOT NULL,
+        subscribed_at TEXT NOT NULL,
+        FOREIGN KEY (sequence_id) REFERENCES master_sequences (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE sequence_logs(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subscription_id INTEGER NOT NULL,
+        message_id INTEGER NOT NULL,
+        sent_at TEXT NOT NULL,
+        FOREIGN KEY (subscription_id) REFERENCES sequence_subscriptions (id) ON DELETE CASCADE,
+        FOREIGN KEY (message_id) REFERENCES sequence_messages (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE sequence_logs(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          subscription_id INTEGER NOT NULL,
+          message_id INTEGER NOT NULL,
+          sent_at TEXT NOT NULL,
+          FOREIGN KEY (subscription_id) REFERENCES sequence_subscriptions (id) ON DELETE CASCADE,
+          FOREIGN KEY (message_id) REFERENCES sequence_messages (id) ON DELETE CASCADE
+        )
+      ''');
+    }
+    if (oldVersion < 8) {
+      await db.execute('''
+        CREATE TABLE master_sequences(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          tag_id TEXT NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE sequence_messages(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sequence_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          delay_days INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (sequence_id) REFERENCES master_sequences (id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE sequence_subscriptions(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          contact_id TEXT NOT NULL,
+          sequence_id INTEGER NOT NULL,
+          subscribed_at TEXT NOT NULL,
+          FOREIGN KEY (sequence_id) REFERENCES master_sequences (id) ON DELETE CASCADE
+        )
+      ''');
+    }
     if (oldVersion < 7) {
       // Add contact_ids and tag_ids to scheduled_groups
       try {
@@ -317,5 +402,126 @@ class ScheduledDbHelper {
         );
       }
     });
+  }
+  // --- Master Sequence Methods ---
+
+  Future<int> insertMasterSequence(MasterSequence sequence) async {
+    final db = await database;
+    return await db.insert('master_sequences', sequence.toMap());
+  }
+
+  Future<List<MasterSequence>> getMasterSequences() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('master_sequences');
+    return List.generate(maps.length, (i) => MasterSequence.fromMap(maps[i]));
+  }
+
+  Future<int> updateMasterSequence(MasterSequence sequence) async {
+    final db = await database;
+    return await db.update(
+      'master_sequences',
+      sequence.toMap(),
+      where: 'id = ?',
+      whereArgs: [sequence.id],
+    );
+  }
+
+  Future<int> deleteMasterSequence(int id) async {
+    final db = await database;
+    return await db.delete(
+      'master_sequences',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // --- Sequence Message Methods ---
+
+  Future<int> insertSequenceMessage(SequenceMessage message) async {
+    final db = await database;
+    return await db.insert('sequence_messages', message.toMap());
+  }
+
+  Future<List<SequenceMessage>> getSequenceMessages(int sequenceId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sequence_messages',
+      where: 'sequence_id = ?',
+      whereArgs: [sequenceId],
+      orderBy: 'delay_days ASC',
+    );
+    return List.generate(maps.length, (i) => SequenceMessage.fromMap(maps[i]));
+  }
+
+  Future<int> deleteSequenceMessage(int id) async {
+    final db = await database;
+    return await db.delete(
+      'sequence_messages',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // --- Sequence Subscription Methods ---
+
+  Future<int> insertSubscription(SequenceSubscription subscription) async {
+    final db = await database;
+    return await db.insert('sequence_subscriptions', subscription.toMap());
+  }
+
+  Future<List<SequenceSubscription>> getSubscriptions() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sequence_subscriptions',
+    );
+    return List.generate(
+      maps.length,
+      (i) => SequenceSubscription.fromMap(maps[i]),
+    );
+  }
+
+  Future<List<SequenceSubscription>> getSubscriptionsForSequence(
+    int sequenceId,
+  ) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sequence_subscriptions',
+      where: 'sequence_id = ?',
+      whereArgs: [sequenceId],
+    );
+    return List.generate(
+      maps.length,
+      (i) => SequenceSubscription.fromMap(maps[i]),
+    );
+  }
+
+  Future<int> deleteSubscription(String contactId, int sequenceId) async {
+    final db = await database;
+    return await db.delete(
+      'sequence_subscriptions',
+      where: 'contact_id = ? AND sequence_id = ?',
+      whereArgs: [contactId, sequenceId],
+    );
+  }
+
+  // --- Sequence Log Methods ---
+
+  Future<int> insertSequenceLog(int subscriptionId, int messageId) async {
+    final db = await database;
+    return await db.insert('sequence_logs', {
+      'subscription_id': subscriptionId,
+      'message_id': messageId,
+      'sent_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<bool> hasSentSequenceMessage(int subscriptionId, int messageId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sequence_logs',
+      where: 'subscription_id = ? AND message_id = ?',
+      whereArgs: [subscriptionId, messageId],
+    );
+    return maps.isNotEmpty;
   }
 }

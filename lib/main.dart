@@ -6,13 +6,12 @@ import 'screens/home/contact_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/home/settings_screen.dart';
 import 'screens/home/add_contact_screen.dart';
-import 'services/scheduling_service.dart';
+// import 'services/scheduling_service.dart'; // Removed as it moved to LoadingScreen
 
 import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SchedulingService.initialize();
 
   // Set status bar to transparent with dark icons (light mode style)
   SystemChrome.setSystemUIOverlayStyle(

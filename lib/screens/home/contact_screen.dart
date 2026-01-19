@@ -34,7 +34,7 @@ class HomeScreen extends ConsumerStatefulWidget {
     super.key,
     this.userName,
     this.userPhotoUrl,
-    this.initialIndex = 1,
+    this.initialIndex = 0,
   });
 
   @override
@@ -63,7 +63,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     });
 
-    _pages = [ContactsPage(), const SendScreen(), const CampaignsScreen()];
+    _pages = [
+      const CampaignsScreen(),
+      const SendScreen(),
+      const ContactsPage(),
+    ];
   }
 
   Future<void> _checkPermissions() async {
@@ -102,16 +106,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.contact_page_outlined),
-            label: 'Contacts',
+            icon: Icon(Icons.campaign),
+            label: 'Campaigns',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.send_outlined),
             label: 'Send',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.campaign),
-            label: 'Campaigns',
+            icon: Icon(Icons.contact_page_outlined),
+            label: 'Contacts',
           ),
         ],
       ),

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/scheduled_provider.dart';
 import '../../models/scheduled_group.dart';
 import '../../widgets/list/dropdown-contacts.dart';
+import '../../widgets/scheduling_debug_panel.dart';
 
 class ScheduledMessagesScreen extends ConsumerStatefulWidget {
   const ScheduledMessagesScreen({super.key});
@@ -357,6 +358,9 @@ class _ScheduledMessagesScreenState
                         },
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    const SchedulingDebugPanel(),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -367,9 +371,9 @@ class _ScheduledMessagesScreenState
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        currentIndex: 2, // Campaigns
+        currentIndex: 0, // Campaigns
         onTap: (index) {
-          if (index == 2) return;
+          if (index == 0) return;
           // Navigate to HomeScreen with selected index
           // We use pushAndRemoveUntil to reset the stack and switch tabs
           Navigator.of(context).pushAndRemoveUntil(
@@ -385,16 +389,16 @@ class _ScheduledMessagesScreenState
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.contact_page_outlined),
-            label: 'Contacts',
+            icon: Icon(Icons.campaign),
+            label: 'Campaigns',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.send_outlined),
             label: 'Send',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.campaign),
-            label: 'Campaigns',
+            icon: Icon(Icons.contact_page_outlined),
+            label: 'Contacts',
           ),
         ],
       ),

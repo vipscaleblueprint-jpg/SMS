@@ -308,8 +308,12 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                               setState(() {
                                 _selectedFrequency = option;
                                 _isFrequencyDropdownOpen = false;
-                                _selectedDay =
-                                    null; // Always reset day when picking new frequency
+                                if (option == 'Monthly') {
+                                  _selectedDay =
+                                      31; // Default to last day of month
+                                } else {
+                                  _selectedDay = null;
+                                }
                               });
                             },
                             child: Container(
@@ -379,7 +383,9 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                                       : null,
                                   child: Center(
                                     child: Text(
-                                      '$day${SchedulingUtils.getDaySuffix(day)} day of the month',
+                                      day == 31
+                                          ? 'Last day of the month'
+                                          : '$day${SchedulingUtils.getDaySuffix(day)} day of the month',
                                       style: const TextStyle(
                                         fontSize: 14,
                                         color: Colors.black87,
@@ -414,7 +420,9 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            '$_selectedDay${SchedulingUtils.getDaySuffix(_selectedDay!)} day of the month',
+                            _selectedDay == 31
+                                ? 'Last day of the month'
+                                : '$_selectedDay${SchedulingUtils.getDaySuffix(_selectedDay!)} day of the month',
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.black87,

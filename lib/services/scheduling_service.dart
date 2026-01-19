@@ -278,34 +278,48 @@ class SchedulingService {
               debugPrint(
                 '🚀 Sending drip message: ${msg.title} to contact ${sub.contactId}',
               );
-
               debugPrint('Attempting to resolve contact ${sub.contactId}...');
+
               // Resolve contact
               final contacts = await contactDb.getContactsByIds([
                 sub.contactId,
               ]);
               debugPrint('Resolved contacts: ${contacts.length}');
 
-              if (contacts.isNotEmpty) {
-                final contact = contacts.first;
+              if (contacts.isEmpty) {
                 debugPrint(
-                  'Contact found: ${contact.name}, Phone: ${contact.phone}. Calling sendFlexibleSms...',
+                  '⚠️ Contact ${sub.contactId} no longer exists. Deleting ghost subscription.',
+                );
+                await dbHelper.deleteSubscription(
+                  sub.contactId,
+                  sub.sequenceId,
+                );
+                // Break out of this sequence of messages for a non-existent contact
+                break;
+              }
+
+              final contact = contacts.first;
+              debugPrint(
+                'Contact found: ${contact.name}, Phone: ${contact.phone}. Calling sendFlexibleSms...',
+              );
+
+              try {
+                await smsService.sendFlexibleSms(
+                  contact: contact,
+                  message: msg.message,
+                  instant: true,
                 );
 
-                try {
-                  await smsService.sendFlexibleSms(
-                    contact: contact,
-                    message: msg.message,
-                    instant: true,
-                  );
-
-                  // Log as sent
-                  await dbHelper.insertSequenceLog(sub.id!, msg.id!);
-                  debugPrint('✅ Drip message ${msg.id} logged as sent.');
-                } catch (e) {
-                  debugPrint('Failed to send drip to ${contact.phone}: $e');
-                }
+                // Log as sent
+                await dbHelper.insertSequenceLog(sub.id!, msg.id!);
+                debugPrint('✅ Drip message ${msg.id} logged as sent.');
+              } catch (e) {
+                debugPrint('Failed to send drip to ${contact.phone}: $e');
               }
+            } else {
+              debugPrint(
+                'ℹ️ Message "${msg.title}" already sent to contact ${sub.contactId}. Skipping.',
+              );
             }
           }
         }

@@ -225,8 +225,18 @@ class _ScheduledMessagesScreenState
                   children: [
                     // Title and Add Button
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(
+                            Icons.arrow_back_ios,
+                            size: 20,
+                            color: Colors.black,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        const SizedBox(width: 8),
                         const Text(
                           'Scheduled',
                           style: TextStyle(
@@ -235,6 +245,7 @@ class _ScheduledMessagesScreenState
                             color: Colors.black,
                           ),
                         ),
+                        const Spacer(),
                         ElevatedButton(
                           onPressed: _showAddScheduledDialog,
                           style: ElevatedButton.styleFrom(

@@ -326,26 +326,54 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header and Recipient Input
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'New mass text',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.normal,
-                      color: Colors.black,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'New Message',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black.withOpacity(0.85),
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      Text(
+                        'Select recipients and compose',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                   if (_isSyncing)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 12.0),
-                      child: SizedBox(
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFBB03B).withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
@@ -359,15 +387,23 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                   else
                     IconButton(
                       onPressed: _syncExternalContacts,
-                      tooltip: 'Sync Contacts from API',
-                      icon: const Icon(
-                        Icons.sync_rounded,
-                        color: Color(0xFFFBB03B),
+                      tooltip: 'Sync Contacts',
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBB03B).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.sync_rounded,
+                          color: Color(0xFFFBB03B),
+                          size: 22,
+                        ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               DropdownContacts(
                 controller: _recipientController,
@@ -390,7 +426,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         // Central Content Area (Message List)
         Expanded(
           child: Container(
-            color: const Color(0xFFE0E0E0), // Light grey placeholder
+            color: const Color(0xFFF8F9FA), // Professional off-white
             width: double.infinity,
             child: messages.isEmpty
                 ? const SizedBox.shrink()
@@ -413,218 +449,86 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                             children: [
                               // Message Bubble
                               Container(
-                                padding: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
                                 width: double.infinity,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
+                                    bottomLeft: Radius.circular(20),
+                                    bottomRight: Radius.circular(4),
                                   ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.04),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        msg.text,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          height: 1.4,
-                                        ),
+                                    Text(
+                                      msg.text,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        height: 1.5,
+                                        color: Colors.black.withOpacity(0.8),
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
-                                    // Show scheduled time if available, otherwise show sent time
-                                    if (msg.scheduledTime != null)
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Scheduled for: ${DateFormat('MMM dd, yyyy hh:mm a').format(msg.scheduledTime!)}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.orange.shade700,
-                                              fontWeight: FontWeight.w500,
-                                            ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        if (msg.scheduledTime != null)
+                                          Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.calendar_today_rounded,
+                                                size: 12,
+                                                color: Color(0xFFFBB03B),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                DateFormat(
+                                                  'MMM dd, hh:mm a',
+                                                ).format(msg.scheduledTime!),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFFFBB03B),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        else
+                                          const SizedBox.shrink(),
+                                        Text(
+                                          timeStr,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade400,
+                                            fontWeight: FontWeight.w500,
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Created: $timeStr',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    else
-                                      Text(
-                                        timeStr,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade500,
                                         ),
-                                      ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),
                               const SizedBox(height: 4),
 
                               // Sending Status / Stop UI
-                              if (msg.isStopButtonVisible)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    SizedBox(
-                                      height: 32,
-                                      child: ElevatedButton(
-                                        onPressed: () =>
-                                            _showStopConfirmationDialog(msg.id),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(
-                                            0xFFFF5252,
-                                          ), // Red color
-                                          foregroundColor: Colors.white,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Stop sending',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    // Count below the button
-                                    RichText(
-                                      text: TextSpan(
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        children: [
-                                          TextSpan(
-                                            text: '${msg.currentSent}',
-                                            style: const TextStyle(
-                                              color: Color(0xFFFBB03B),
-                                            ),
-                                          ),
-                                          TextSpan(
-                                            text: '/${msg.totalToSend}',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else if (msg.isCanceled)
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    children: [
-                                      const TextSpan(
-                                        text: 'Canceled ',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                      TextSpan(
-                                        text: '${msg.currentSent}',
-                                        style: const TextStyle(
-                                          color: Color(0xFFFBB03B),
-                                        ),
-                                      ),
-                                      const TextSpan(
-                                        text: '/',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                      TextSpan(
-                                        text: '${msg.totalToSend}',
-                                        style: const TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else if (msg.isCompleted) // Check isCompleted
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    children: [
-                                      const TextSpan(
-                                        text: 'Sent ',
-                                        style: TextStyle(
-                                          color: Color(0xFFFBB03B),
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: '${msg.currentSent}',
-                                        style: const TextStyle(
-                                          color: Color(0xFFFBB03B),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: '/${msg.totalToSend}',
-                                        style: const TextStyle(
-                                          color: Color(0xFFFBB03B),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    children: [
-                                      const TextSpan(
-                                        text: 'Sending... ',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                      TextSpan(
-                                        text: '${msg.currentSent}',
-                                        style: const TextStyle(
-                                          color: Color(0xFFFBB03B),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: '/${msg.totalToSend}',
-                                        style: TextStyle(
-                                          color: Colors
-                                              .grey
-                                              .shade600, // Total grey
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: _buildEnhancedStatus(msg),
+                              ),
                             ],
                           ),
                         ),
@@ -644,13 +548,26 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: Colors.grey.shade100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
                   ),
                   child: TextField(
                     controller: _messageController,
+                    maxLines: 5,
+                    minLines: 1,
                     decoration: const InputDecoration(
                       hintText: 'Send a message...',
-                      hintStyle: TextStyle(color: Colors.grey),
+                      hintStyle: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 20,
@@ -664,15 +581,138 @@ class _SendScreenState extends ConsumerState<SendScreen> {
               GestureDetector(
                 onTap: _sendMessage,
                 child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFBB03B), // Brand yellow
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFBB03B),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFBB03B).withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.send, color: Colors.blueAccent),
+                  child: const Icon(Icons.send_rounded, color: Colors.white),
                 ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEnhancedStatus(Message msg) {
+    if (msg.isStopButtonVisible) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${msg.currentSent}',
+                style: const TextStyle(
+                  color: Color(0xFFFBB03B),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              Text(
+                ' / ${msg.totalToSend} sending',
+                style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => _showStopConfirmationDialog(msg.id),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF5252).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Stop',
+                    style: TextStyle(
+                      color: Color(0xFFFF5252),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    if (msg.isCanceled) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline_rounded, size: 14, color: Colors.grey),
+          const SizedBox(width: 4),
+          Text(
+            'Canceled (${msg.currentSent}/${msg.totalToSend})',
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (msg.isCompleted) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.check_circle_rounded,
+            size: 14,
+            color: Color(0xFFFBB03B),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Sent to all ${msg.totalToSend}',
+            style: const TextStyle(
+              color: Color(0xFFFBB03B),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(
+          width: 10,
+          height: 10,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'Sending ${msg.currentSent}/${msg.totalToSend}',
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

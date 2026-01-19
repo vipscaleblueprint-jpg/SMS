@@ -1,5 +1,6 @@
 import 'package:another_telephony/telephony.dart' hide SmsStatus;
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/contact.dart';
 import '../models/sms.dart';
 import '../utils/db/sms_db_helper.dart';
@@ -8,7 +9,9 @@ class SmsService {
   Telephony get _telephony => Telephony.instance;
 
   Future<bool?> requestPermissions() async {
-    return await _telephony.requestPhoneAndSmsPermissions;
+    final sms = await Permission.sms.request();
+    final phone = await Permission.phone.request();
+    return sms.isGranted && phone.isGranted;
   }
 
   Future<List<SmsMessage>> getInboxMessages() async {

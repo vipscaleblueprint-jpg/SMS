@@ -219,18 +219,24 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
           child: Chip(
             label: Text(
               tag.name,
-              style: const TextStyle(color: Color(0xFFFBB03B)),
+              style: const TextStyle(
+                color: Color(0xFFFBB03B),
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
             ),
-            backgroundColor: Colors.transparent,
+            backgroundColor: const Color(0xFFFBB03B).withOpacity(0.08),
             deleteIcon: const Icon(
-              Icons.close,
-              size: 18,
+              Icons.cancel,
+              size: 16,
               color: Color(0xFFFBB03B),
             ),
             onDeleted: () => widget.onTagSelected(tag),
-            shape: const StadiumBorder(
-              side: BorderSide(color: Color(0xFFFBB03B)),
+            shape: StadiumBorder(
+              side: BorderSide(color: const Color(0xFFFBB03B).withOpacity(0.3)),
             ),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             visualDensity: VisualDensity.compact,
           ),
         ),
@@ -243,20 +249,26 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
               child: Text(
                 contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            label: Text(contact.name),
-            backgroundColor: Colors.grey.shade200,
-            deleteIcon: const Icon(Icons.close, size: 18),
-            onDeleted: () => widget.onContactSelected(contact),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+            label: Text(
+              contact.name,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
-            side: BorderSide.none,
+            backgroundColor: Colors.white,
+            deleteIcon: Icon(
+              Icons.cancel,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
+            onDeleted: () => widget.onContactSelected(contact),
+            shape: StadiumBorder(side: BorderSide(color: Colors.grey.shade200)),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             visualDensity: VisualDensity.compact,
           ),
         ),
@@ -313,12 +325,16 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
             IconButton(
               onPressed: _toggleDropdown,
               icon: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE0E0E0),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBB03B).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                padding: const EdgeInsets.all(4),
-                child: const Icon(Icons.add, color: Colors.white, size: 20),
+                padding: const EdgeInsets.all(6),
+                child: const Icon(
+                  Icons.add,
+                  color: Color(0xFFFBB03B),
+                  size: 20,
+                ),
               ),
             ),
           ],
@@ -389,25 +405,22 @@ class _RecipientListState extends ConsumerState<_RecipientList> {
         ),
         child: ListView(
           shrinkWrap: true,
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
             // Contacts Section (Moved to Top)
             if (widget.showContacts && filteredContacts.isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                color: Colors.grey.shade100,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Contacts',
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade400,
+                        letterSpacing: 1.1,
                       ),
                     ),
                     if (filteredContacts.length > 1 && !_isContactsExpanded)

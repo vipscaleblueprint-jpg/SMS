@@ -36,7 +36,8 @@ class _LoadingScreenState extends State<LoadingScreen> {
       Permission.phone,
       Permission.contacts,
       Permission.scheduleExactAlarm,
-      Permission.notification, // Good practice for Android 13+
+      Permission.notification,
+      Permission.storage,
     ].request();
 
     // Log the results (optional: handle denied permissions if needed)

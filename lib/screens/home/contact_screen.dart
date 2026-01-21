@@ -68,19 +68,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _checkPermissions() async {
-    // Request all necessary permissions
-    await [
-      Permission.sms,
-      Permission.contacts,
-      Permission.phone,
-      Permission.notification,
-      Permission.storage,
-    ].request();
-
+    // Basic permissions are already handled in LoadingScreen
     // Specific check for MobileNumber plugin
     try {
-      if (!await MobileNumber.hasPhonePermission) {
-        await MobileNumber.requestPhonePermission;
+      if (await Permission.phone.isGranted) {
+        if (!await MobileNumber.hasPhonePermission) {
+          await MobileNumber.requestPhonePermission;
+        }
       }
     } catch (e) {
       debugPrint('Error checking mobile number permission: $e');

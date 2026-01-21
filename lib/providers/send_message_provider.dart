@@ -19,6 +19,7 @@ class Message {
   bool isStopButtonVisible;
   bool isCanceled;
   bool isCompleted;
+  bool isSent;
 
   Message({
     required this.id,
@@ -30,6 +31,7 @@ class Message {
     this.isStopButtonVisible = false,
     this.isCanceled = false,
     this.isCompleted = false,
+    this.isSent = false,
   });
 }
 
@@ -66,6 +68,7 @@ class SendMessageState {
 class SendMessageNotifier extends Notifier<SendMessageState> {
   final SmsService _smsService = SmsService();
   final Map<String, StreamSubscription> _subscriptions = {};
+  Timer? _refreshTimer;
 
   @override
   SendMessageState build() {
@@ -75,10 +78,16 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
       for (var sub in _subscriptions.values) {
         sub.cancel();
       }
+      _refreshTimer?.cancel();
     });
 
     // Load history asynchronously
     _loadHistory();
+
+    // Set up periodic refresh to catch background status changes
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _loadHistory();
+    });
 
     return SendMessageState();
   }
@@ -94,7 +103,9 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
             scheduledTime: s.schedule_time,
             currentSent: s.status == SmsStatus.sent ? (s.batchTotal ?? 1) : 0,
             totalToSend: s.batchTotal ?? 1,
-            isCompleted: s.status == SmsStatus.sent,
+            isCompleted:
+                s.status == SmsStatus.sent || s.status == SmsStatus.pending,
+            isSent: s.status == SmsStatus.sent,
           ),
         )
         .toList();
@@ -102,7 +113,16 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
     // Sort Newest -> Oldest (Index 0 = Newest)
     uiMessages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    state = state.copyWith(messages: uiMessages);
+    // Preserve active sending state for messages currently being processed
+    final finalMessages = uiMessages.map((newMsg) {
+      final activeIndex = state.messages.indexWhere((m) => m.id == newMsg.id);
+      if (activeIndex != -1 && _subscriptions.containsKey(newMsg.id)) {
+        return state.messages[activeIndex];
+      }
+      return newMsg;
+    }).toList();
+
+    state = state.copyWith(messages: finalMessages);
   }
 
   void toggleContact(String contactId) {
@@ -177,10 +197,7 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
     }
 
     // Manual Recipient (Create and save contact with 'new' tag)
-    if (state.selectedContactIds.isEmpty &&
-        state.selectedTagIds.isEmpty &&
-        manualRecipient != null &&
-        manualRecipient.isNotEmpty) {
+    if (manualRecipient != null && manualRecipient.trim().isNotEmpty) {
       final newTag = await ref
           .read(tagsProvider.notifier)
           .getOrCreateTag('new');
@@ -189,7 +206,7 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
         contact_id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
         first_name: 'Manual',
         last_name: 'Recipient',
-        phone: manualRecipient,
+        phone: manualRecipient.trim(),
         created: DateTime.now(),
         tags: [newTag],
       );
@@ -198,12 +215,17 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
       await ref.read(contactsProvider.notifier).addContact(manualContact);
 
       targetContacts.add(manualContact);
+      addedContactIds.add(manualContact.contact_id);
     }
 
     if (targetContacts.isEmpty) {
+      debugPrint('⚠️ sendBatch: targetContacts is EMPTY');
       onRecipientsEmpty();
       return;
     }
+
+    debugPrint('🚀 sendBatch: starting for ${targetContacts.length} contacts');
+    debugPrint('🚀 First contact phone: ${targetContacts.first.phone}');
 
     final newMessage = Message(
       id: DateTime.now().toString(),
@@ -260,6 +282,7 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
     final index = messages.indexWhere((m) => m.id == id);
     if (index != -1) {
       messages[index].isCompleted = true;
+      messages[index].isSent = true;
       // Cleanup subscription
       _subscriptions[id]?.cancel();
       _subscriptions.remove(id);

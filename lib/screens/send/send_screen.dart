@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../widgets/list/dropdown-contacts.dart';
 import '../../providers/send_message_provider.dart';
 import '../../providers/contacts_provider.dart';
+import '../../widgets/header_user.dart';
 
 // Message class moved to provider
 
@@ -22,6 +23,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   final FocusNode _recipientFocusNode = FocusNode();
   bool _isSyncing = false;
   bool _isFirstLoad = true;
+  bool _isSending = false;
 
   @override
   void initState() {
@@ -41,102 +43,78 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   Future<void> _sendMessage() async {
-    final notifier = ref.read(sendMessageProvider.notifier);
-    final granted = await notifier.requestPermissions();
+    if (_isSending) return;
+    setState(() => _isSending = true);
 
-    if (!granted) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('SMS permissions are required to send messages.'),
-        ),
-      );
-      return;
-    }
+    try {
+      final notifier = ref.read(sendMessageProvider.notifier);
+      final granted = await notifier.requestPermissions();
 
-    final text = _messageController.text;
-    final manualRecipient = _recipientController.text.trim();
-    final sendState = ref.read(sendMessageProvider);
+      if (!granted) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('SMS permissions are required to send messages.'),
+          ),
+        );
+        return;
+      }
 
-    // Validation
-    if (text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter a message.')));
-      return;
-    }
+      final text = _messageController.text;
+      final manualRecipient = _recipientController.text.trim();
+      final sendState = ref.read(sendMessageProvider);
 
-    if (sendState.selectedContactIds.isEmpty &&
-        sendState.selectedTagIds.isEmpty &&
-        manualRecipient.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No recipients selected.')));
-      return;
-    }
+      // Validation
+      if (text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a message.')),
+        );
+        return;
+      }
 
-    // Show Dialog for Schedule or Instant
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('Send Message'),
-          content: const Text('When would you like to send this message?'),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                // Save the main context before closing dialog
-                final mainContext = context;
-                Navigator.of(dialogContext).pop();
+      if (sendState.selectedContactIds.isEmpty &&
+          sendState.selectedTagIds.isEmpty &&
+          manualRecipient.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No recipients selected.')),
+        );
+        return;
+      }
 
-                // Use the saved context for pickers
-                if (!mounted) return;
+      // Show Dialog for Schedule or Instant
+      showDialog(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            title: const Text('Send Message'),
+            content: const Text('When would you like to send this message?'),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  // Save the main context before closing dialog
+                  final mainContext = context;
+                  Navigator.of(dialogContext).pop();
 
-                DateTime? pickedDate = await showDatePicker(
-                  context: mainContext,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                  builder: (context, child) {
-                    return Theme(
-                      data: Theme.of(context).copyWith(
-                        datePickerTheme: const DatePickerThemeData(
-                          backgroundColor: Colors.white,
-                          surfaceTintColor: Colors.transparent,
-                          headerBackgroundColor: Color(0xFFFFF0D6),
-                          headerForegroundColor: Colors.black,
-                        ),
-                        timePickerTheme: const TimePickerThemeData(
-                          backgroundColor: Colors.white,
-                        ),
-                        colorScheme: const ColorScheme.light(
-                          primary: Color(0xFFFBB03B),
-                          onPrimary: Colors.white,
-                          onSurface: Colors.black,
-                          surface: Colors.white,
-                          surfaceContainerHigh: Colors.white,
-                        ),
-                        dialogBackgroundColor: Colors.white,
-                      ),
-                      child: child!,
-                    );
-                  },
-                );
+                  // Use the saved context for pickers
+                  if (!mounted) return;
 
-                if (pickedDate != null && mounted) {
-                  TimeOfDay? pickedTime = await showTimePicker(
+                  DateTime? pickedDate = await showDatePicker(
                     context: mainContext,
-                    initialTime: TimeOfDay.now(),
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
                     builder: (context, child) {
                       return Theme(
                         data: Theme.of(context).copyWith(
+                          datePickerTheme: const DatePickerThemeData(
+                            backgroundColor: Colors.white,
+                            surfaceTintColor: Colors.transparent,
+                            headerBackgroundColor: Color(0xFFFFF0D6),
+                            headerForegroundColor: Colors.black,
+                          ),
                           timePickerTheme: const TimePickerThemeData(
                             backgroundColor: Colors.white,
-                            hourMinuteColor: Color(0xFFFFF0D6),
-                            dayPeriodColor: Color(0xFFFFF0D6),
-                            dialHandColor: Color(0xFFFBB03B),
-                            dialBackgroundColor: Colors.white,
                           ),
                           colorScheme: const ColorScheme.light(
                             primary: Color(0xFFFBB03B),
@@ -144,7 +122,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                             onSurface: Colors.black,
                             surface: Colors.white,
                             surfaceContainerHigh: Colors.white,
-                            surfaceContainerHighest: Colors.white,
                           ),
                           dialogBackgroundColor: Colors.white,
                         ),
@@ -153,36 +130,72 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                     },
                   );
 
-                  if (pickedTime != null && mounted) {
-                    final scheduledTime = DateTime(
-                      pickedDate.year,
-                      pickedDate.month,
-                      pickedDate.day,
-                      pickedTime.hour,
-                      pickedTime.minute,
+                  if (pickedDate != null && mounted) {
+                    TimeOfDay? pickedTime = await showTimePicker(
+                      context: mainContext,
+                      initialTime: TimeOfDay.now(),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            timePickerTheme: const TimePickerThemeData(
+                              backgroundColor: Colors.white,
+                              hourMinuteColor: Color(0xFFFFF0D6),
+                              dayPeriodColor: Color(0xFFFFF0D6),
+                              dialHandColor: Color(0xFFFBB03B),
+                              dialBackgroundColor: Colors.white,
+                            ),
+                            colorScheme: const ColorScheme.light(
+                              primary: Color(0xFFFBB03B),
+                              onPrimary: Colors.white,
+                              onSurface: Colors.black,
+                              surface: Colors.white,
+                              surfaceContainerHigh: Colors.white,
+                              surfaceContainerHighest: Colors.white,
+                            ),
+                            dialogBackgroundColor: Colors.white,
+                          ),
+                          child: child!,
+                        );
+                      },
                     );
-                    _executeSend(
-                      text,
-                      manualRecipient,
-                      instant: false,
-                      scheduledTime: scheduledTime,
-                    );
+
+                    if (pickedTime != null && mounted) {
+                      final scheduledTime = DateTime(
+                        pickedDate.year,
+                        pickedDate.month,
+                        pickedDate.day,
+                        pickedTime.hour,
+                        pickedTime.minute,
+                      );
+                      _executeSend(
+                        text,
+                        manualRecipient,
+                        instant: false,
+                        scheduledTime: scheduledTime,
+                      );
+                    }
                   }
-                }
-              },
-              child: const Text('Schedule'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                _executeSend(text, manualRecipient, instant: true);
-              },
-              child: const Text('Instant'),
-            ),
-          ],
-        );
-      },
-    );
+                },
+                child: const Text('Schedule'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  _executeSend(text, manualRecipient, instant: true);
+                },
+                child: const Text('Instant'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('Error in _sendMessage: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
   }
 
   Future<void> _executeSend(
@@ -212,6 +225,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     );
 
     _messageController.clear();
+    _recipientController.clear();
     notifier.clearRecipients();
     FocusScope.of(context).unfocus();
   }
@@ -327,7 +341,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       children: [
         // Header and Recipient Input
         Container(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -341,6 +355,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const HeaderUser(),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -674,17 +690,22 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     }
 
     if (msg.isCompleted) {
+      final isScheduledQueue = msg.scheduledTime != null && !msg.isSent;
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.check_circle_rounded,
+          Icon(
+            isScheduledQueue
+                ? Icons.access_time_filled_rounded
+                : Icons.check_circle_rounded,
             size: 14,
-            color: Color(0xFFFBB03B),
+            color: const Color(0xFFFBB03B),
           ),
           const SizedBox(width: 4),
           Text(
-            'Sent to all ${msg.totalToSend}',
+            isScheduledQueue
+                ? 'Scheduled (queued)'
+                : 'Sent to all ${msg.totalToSend}',
             style: const TextStyle(
               color: Color(0xFFFBB03B),
               fontSize: 12,

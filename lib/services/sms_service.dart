@@ -9,6 +9,15 @@ class SmsService {
   Telephony get _telephony => Telephony.instance;
 
   Future<bool?> requestPermissions() async {
+    // First check existing status to avoid redundant requests that cause crashes
+    final smsGranted = await Permission.sms.isGranted;
+    final phoneGranted = await Permission.phone.isGranted;
+
+    if (smsGranted && phoneGranted) {
+      debugPrint('🛡️ Permissions already granted, skipping request.');
+      return true;
+    }
+
     final sms = await Permission.sms.request();
     final phone = await Permission.phone.request();
     return sms.isGranted && phone.isGranted;
@@ -31,6 +40,7 @@ class SmsService {
   Future<void> sendSms({
     required String address,
     required String message,
+    int? id,
     String? contactId,
     String? batchId,
     int? batchTotal,
@@ -39,13 +49,16 @@ class SmsService {
     try {
       await _telephony.sendSms(to: address, message: message);
       status = SmsStatus.sent;
+      debugPrint('✅ SMS Sent to $address');
     } catch (e) {
       status = SmsStatus.failed;
+      debugPrint('❌ SMS Failed to $address: $e');
       rethrow;
     } finally {
       // Save to database regardless of outcome
       try {
         final sms = Sms(
+          id: id,
           contact_id: contactId,
           phone_number: address,
           message: message,
@@ -56,7 +69,7 @@ class SmsService {
         );
         await SmsDbHelper().insertSms(sms);
       } catch (dbError) {
-        print('Error saving SMS to database: $dbError');
+        debugPrint('Error saving SMS to database: $dbError');
       }
     }
   }
@@ -109,10 +122,16 @@ class SmsService {
     int simSlot = 1,
     Duration delay = const Duration(milliseconds: 200),
   }) async* {
+    debugPrint(
+      '🏁 sendBatchSmsWithDetails: starting for ${contacts.length} contacts',
+    );
     int sentCount = 0;
     final batchId = 'batch_${DateTime.now().millisecondsSinceEpoch}';
     final batchTotal = contacts.length;
     for (final contact in contacts) {
+      debugPrint(
+        '👉 sendBatchSmsWithDetails: Iterating contact ${contact.phone}',
+      );
       // Reuse sendFlexibleSms logic for substitution and sending
       try {
         await sendFlexibleSms(

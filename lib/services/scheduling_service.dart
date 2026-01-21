@@ -103,40 +103,13 @@ class SchedulingService {
       await smsService.sendSms(
         address: msg.phone_number!,
         message: msg.message,
+        id: msg.id, // Pass ID to update existing record
         contactId: msg.contact_id,
       );
-
-      // Update status to sent
-      final updatedSms = sms_model.Sms(
-        id: msg.id,
-        title: msg.title,
-        message: msg.message,
-        contact_id: msg.contact_id,
-        phone_number: msg.phone_number,
-        sender_number: msg.sender_number,
-        status: sms_model.SmsStatus.sent,
-        sentTimeStamps: DateTime.now(),
-        schedule_time: msg.schedule_time,
-        event_id: msg.event_id,
-      );
-      await dbHelper.updateSms(updatedSms);
-      debugPrint('✅ One-time message ${msg.id} sent and updated.');
+      // Removed redundant updateSms call as sendSms now handles it.
     } catch (e) {
       debugPrint('❌ Error processing one-time message ${msg.id}: $e');
-      // Update status to failed
-      final failedSms = sms_model.Sms(
-        id: msg.id,
-        title: msg.title,
-        message: msg.message,
-        contact_id: msg.contact_id,
-        phone_number: msg.phone_number,
-        sender_number: msg.sender_number,
-        status: sms_model.SmsStatus.failed,
-        sentTimeStamps: msg.sentTimeStamps,
-        schedule_time: msg.schedule_time,
-        event_id: msg.event_id,
-      );
-      await dbHelper.updateSms(failedSms);
+      // Removed redundant updateSms call as sendSms now handles it via internal finally block.
     }
   }
 

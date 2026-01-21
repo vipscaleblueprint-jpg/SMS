@@ -106,10 +106,12 @@ class _DropdownContactsState extends ConsumerState<DropdownContacts> {
               selectedTagIds: widget.selectedTagIds,
               showContacts: widget.showContacts,
               onContactSelected: (contact) {
+                widget.controller.clear();
                 widget.onContactSelected(contact);
                 _dropdownOverlay?.markNeedsBuild();
               },
               onTagSelected: (tag) {
+                widget.controller.clear();
                 widget.onTagSelected(tag);
                 _dropdownOverlay?.markNeedsBuild();
               },

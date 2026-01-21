@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/master_sequence.dart';
 import '../../utils/db/scheduled_db_helper.dart';
+import '../../widgets/header_user.dart';
 import 'add_master_sequence_screen.dart';
 
 class MasterSequenceScreen extends StatefulWidget {
@@ -39,41 +40,111 @@ class _MasterSequenceScreenState extends State<MasterSequenceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Master Sequences'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: Color(0xFFFBB03B)),
-            onPressed: () async {
-              final result = await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const AddMasterSequenceScreen(),
-                ),
-              );
-              if (result == true) {
-                _loadSequences();
-              }
-            },
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFBB03B)),
-            )
-          : _sequences.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _sequences.length,
-              itemBuilder: (context, index) {
-                final sequence = _sequences[index];
-                return _buildSequenceCard(sequence);
-              },
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Standard Header Area
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              color: Colors.white,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Row: Back Button and User Profile
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.black,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        const HeaderUser(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Title and Add Button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Master Sequences',
+                          style: TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black.withOpacity(0.9),
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () async {
+                            final result = await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const AddMasterSequenceScreen(),
+                              ),
+                            );
+                            if (result == true) {
+                              _loadSequences();
+                            }
+                          },
+                          icon: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFBB03B).withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.add_rounded,
+                              color: Color(0xFFFBB03B),
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
+
+            // Content Area
+            Expanded(
+              child: Container(
+                color: const Color(0xFFF8F9FA),
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFFBB03B),
+                        ),
+                      )
+                    : _sequences.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        itemCount: _sequences.length,
+                        itemBuilder: (context, index) {
+                          final sequence = _sequences[index];
+                          return _buildSequenceCard(sequence);
+                        },
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -132,52 +203,128 @@ class _MasterSequenceScreenState extends State<MasterSequenceScreen> {
   }
 
   Widget _buildSequenceCard(MasterSequence sequence) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
-      child: ListTile(
-        title: Text(
-          sequence.title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text('Trigger: Tag ID ${sequence.tagId}'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Switch(
-              value: sequence.isActive,
-              activeColor: const Color(0xFFFBB03B),
-              onChanged: (value) async {
-                final updated = MasterSequence(
-                  id: sequence.id,
-                  title: sequence.title,
-                  tagId: sequence.tagId,
-                  isActive: value,
-                );
-                await _dbHelper.updateMasterSequence(updated);
-                _loadSequences();
-              },
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => AddMasterSequenceScreen(sequence: sequence),
             ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () async {
-                final result = await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        AddMasterSequenceScreen(sequence: sequence),
+          );
+          if (result == true) {
+            _loadSequences();
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          sequence.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.label_outline_rounded,
+                              size: 14,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Trigger: Tag ID ${sequence.tagId}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                );
-                if (result == true) {
-                  _loadSequences();
-                }
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () => _showDeleteConfirmation(sequence),
-            ),
-          ],
+                  Switch.adaptive(
+                    value: sequence.isActive,
+                    activeColor: const Color(0xFFFBB03B),
+                    onChanged: (value) async {
+                      final updated = MasterSequence(
+                        id: sequence.id,
+                        title: sequence.title,
+                        tagId: sequence.tagId,
+                        isActive: value,
+                      );
+                      await _dbHelper.updateMasterSequence(updated);
+                      _loadSequences();
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () async {
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              AddMasterSequenceScreen(sequence: sequence),
+                        ),
+                      );
+                      if (result == true) {
+                        _loadSequences();
+                      }
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Edit'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey[700],
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => _showDeleteConfirmation(sequence),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Delete'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red[400],
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

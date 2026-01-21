@@ -5,24 +5,20 @@ import '../../models/contact.dart';
 import '../modals/edit_contact_dialog.dart';
 
 class ContactsList extends ConsumerStatefulWidget {
-  const ContactsList({super.key});
+  final String searchQuery;
+  const ContactsList({super.key, this.searchQuery = ''});
 
   @override
   ConsumerState<ContactsList> createState() => _ContactsListState();
 }
 
 class _ContactsListState extends ConsumerState<ContactsList> {
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
+  // Removed internal _searchController as it's now managed by parent
 
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  // Dispose removed since _searchController is gone
 
   void _toggleSelectionMode(String? initialId) {
     setState(() {
@@ -97,155 +93,100 @@ class _ContactsListState extends ConsumerState<ContactsList> {
   @override
   Widget build(BuildContext context) {
     final allContacts = ref.watch(contactsProvider);
+    final query = widget.searchQuery.toLowerCase();
 
     // 1. Filter contacts based on search query
     final filteredContacts = allContacts.where((contact) {
-      final query = _searchQuery.toLowerCase();
-      final nameMatch = contact.name.toLowerCase().contains(query);
-      final phoneMatch = contact.phone.contains(query);
+      final queryStr = query;
+      final nameMatch = contact.name.toLowerCase().contains(queryStr);
+      final phoneMatch = contact.phone.contains(queryStr);
       final tagMatch = contact.tags.any(
-        (t) => t.name.toLowerCase().contains(query),
+        (t) => t.name.toLowerCase().contains(queryStr),
       );
       return nameMatch || phoneMatch || tagMatch;
     }).toList();
 
     return Column(
       children: [
-        // ===========================
-        // TOOLBAR (Search or Actions)
-        // ===========================
+        // Search Bar Area
         if (_isSelectionMode)
           Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            color: const Color(0xFFFBB03B).withOpacity(0.1),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBB03B).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close_rounded),
                   onPressed: () => _toggleSelectionMode(null),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${_selectedIds.length} Selected',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                Expanded(
+                  child: Text(
+                    '${_selectedIds.length} Selected',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                    ),
                   ),
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                TextButton(
                   onPressed: _deleteSelected,
+                  child: const Text(
+                    'Delete',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
-          )
-        else
-          TextField(
-            controller: _searchController,
-            onChanged: (value) => setState(() => _searchQuery = value),
-            decoration: InputDecoration(
-              hintText: 'Search contacts tags...',
-              prefixIcon: const Icon(Icons.search, color: Colors.grey),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 0,
-                horizontal: 16,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-            ),
           ),
 
-        if (!_isSelectionMode)
-          const SizedBox(height: 24)
-        else
-          const SizedBox(height: 8),
+        // Removed internal TextField here, now managed by parent
 
-        // ===========================
-        // TABLE HEADERS
-        // ===========================
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8.0, left: 4, right: 4),
-          child: Row(
-            children: [
-              if (_isSelectionMode)
-                Padding(
-                  padding: const EdgeInsets.only(right: 12.0),
-                  child: Checkbox(
-                    value:
-                        _selectedIds.isNotEmpty &&
-                        _selectedIds.length == filteredContacts.length,
-                    onChanged: (val) {
-                      if (val == true) {
-                        setState(() {
-                          _selectedIds.addAll(
-                            filteredContacts.map((c) => c.contact_id),
-                          );
-                        });
-                      } else {
-                        setState(() {
-                          _selectedIds.clear();
-                        });
-                      }
-                    },
-                  ),
-                ),
-
-              const Expanded(
-                flex: 2,
-                child: Text(
-                  'Name',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-              const Expanded(
-                flex: 2,
-                child: Text(
-                  'Number',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-              if (!_isSelectionMode)
-                const Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Tags',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-
-        // ===========================
-        // LIST (TABLE ROWS)
-        // ===========================
+        // Contact List
         Expanded(
           child: filteredContacts.isEmpty
               ? Center(
-                  child: Text(
-                    allContacts.isEmpty
-                        ? 'No contacts found'
-                        : 'No matches found',
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.contacts_rounded,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        allContacts.isEmpty
+                            ? 'No contacts found'
+                            : 'No matches found',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 )
               : ListView.separated(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   itemCount: filteredContacts.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 16),
-                  padding: const EdgeInsets.only(top: 16, bottom: 80),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  separatorBuilder: (context, index) => Divider(
+                    height: 1,
+                    indent: 64,
+                    color: Colors.grey.shade100,
+                  ),
                   itemBuilder: (context, index) {
                     final contact = filteredContacts[index];
                     final isSelected = _selectedIds.contains(
@@ -307,65 +248,86 @@ class ContactRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFBB03B).withOpacity(0.05) : null,
-          borderRadius: BorderRadius.circular(8),
-          border: isSelected
-              ? Border.all(color: const Color(0xFFFBB03B).withOpacity(0.3))
-              : null,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
             if (isSelectionMode)
               Padding(
-                padding: const EdgeInsets.only(right: 12.0),
+                padding: const EdgeInsets.only(right: 16.0),
                 child: Checkbox(
                   value: isSelected,
                   activeColor: const Color(0xFFFBB03B),
+                  shape: const CircleBorder(),
                   onChanged: onSelectChange,
                 ),
               ),
 
-            // Name
-            Expanded(
-              flex: 2,
+            // Avatar
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: const Color(0xFFFBB03B).withOpacity(0.1),
               child: Text(
-                contact.name,
+                contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
                 style: const TextStyle(
+                  color: Color(0xFFFBB03B),
+                  fontWeight: FontWeight.w700,
                   fontSize: 16,
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w500,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
             ),
-            // Number
+            const SizedBox(width: 16),
+
+            // Name and Phone
             Expanded(
-              flex: 2,
-              child: Text(
-                contact.phone,
-                style: TextStyle(fontSize: 15, color: Colors.grey[700]),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    contact.name,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    contact.phone,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
               ),
             ),
-            // Tag Count - Hide in selection mode on small screens if cluttered, but fitting it is better
-            if (!isSelectionMode)
-              Expanded(
-                flex: 1,
+
+            // Tags Indicator
+            if (!isSelectionMode && contact.tags.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                ),
                 child: Text(
-                  contact.tags.isEmpty ? '-' : '${contact.tags.length} Tags',
-                  textAlign: TextAlign.right,
+                  '${contact.tags.length}',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: contact.tags.isEmpty
-                        ? Colors.grey[400]
-                        : const Color(0xFFFBB03B),
-                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade500,
                   ),
                 ),
+              ),
+
+            if (!isSelectionMode)
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.grey.shade300,
+                size: 20,
               ),
           ],
         ),

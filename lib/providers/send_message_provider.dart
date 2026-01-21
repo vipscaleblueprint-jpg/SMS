@@ -99,6 +99,9 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
         )
         .toList();
 
+    // Sort Newest -> Oldest (Index 0 = Newest)
+    uiMessages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
     state = state.copyWith(messages: uiMessages);
   }
 
@@ -211,8 +214,9 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
       totalToSend: targetContacts.length,
     );
 
-    // Update state to include new message
-    state = state.copyWith(messages: [...state.messages, newMessage]);
+    // Update state to include new message at the BEGINNING (Index 0)
+    // Because ListView is reversed: Index 0 => Bottom
+    state = state.copyWith(messages: [newMessage, ...state.messages]);
 
     final stream = _smsService.sendBatchSmsWithDetails(
       contacts: targetContacts,

@@ -3,18 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/sms.dart';
 import '../../providers/sms_provider.dart';
-import '../../widgets/variable_text_editor.dart';
 
 class AddSmsScreen extends ConsumerStatefulWidget {
   final String eventTitle;
-  final int? eventId;
+  final int eventId;
   final DateTime? eventDate;
-  final Sms? smsToEdit; // Added for editing
+  final Sms? smsToEdit;
 
   const AddSmsScreen({
     super.key,
     required this.eventTitle,
-    this.eventId,
+    required this.eventId,
     this.eventDate,
     this.smsToEdit,
   });
@@ -24,668 +23,300 @@ class AddSmsScreen extends ConsumerStatefulWidget {
 }
 
 class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _bodyController = TextEditingController(
-    text:
-        "Subject: Thanks, your spot is saved!\n\n{{first_name}}\n\nThanks for registering for [your webinar name]!\nHere are the details of when we're starting:\nTime: {{ event_time | date: \"%B %d, %Y %I:%M%p (%Z)\" }}\n\nThe webinar link will be emailed to you on the day of the event :)\n\nHere's what I'll be covering in the webinar:\n[insert a numbered list or bullet points of the topics you'll be talking about in the live stream]\n\nTalk soon,\nYour Name",
-  );
-
-  bool _isDropdownOpen = false;
-  String _selectedTimeOrientation = 'Draft'; // Default to Draft
-  final List<String> _timeOptions = [
-    'Draft',
-    'Specific Date and Time',
-    'Before the event',
-    'At the time of event',
-    'After the event',
-  ];
-
-  DateTime? _selectedDateTime;
-
-  // Relative Time State
-  final TextEditingController _relativeTimeValueController =
-      TextEditingController();
-  String _relativeTimeUnit = 'days';
-  final List<String> _relativeTimeOptions = [
-    'minutes',
-    'hours',
-    'days',
-    'weeks',
-    'months',
-  ];
-  bool _isRelativeUnitDropdownOpen = false;
-
-  final FocusNode _bodyFocusNode = FocusNode();
-  final FocusNode _titleFocusNode = FocusNode(); // Add new FocusNode
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _titleController;
+  late TextEditingController _messageController;
+  DateTime? _scheduleDate;
+  TimeOfDay? _scheduleTime;
 
   @override
   void initState() {
     super.initState();
-    _relativeTimeValueController.addListener(() {
-      setState(() {});
-    });
+    _titleController = TextEditingController(
+      text: widget.smsToEdit?.title ?? '',
+    );
+    _messageController = TextEditingController(
+      text: widget.smsToEdit?.message ?? '',
+    );
 
-    // Add listener to rebuild UI on focus change
-    _titleFocusNode.addListener(() {
-      if (mounted) setState(() {});
-    });
-
-    if (widget.smsToEdit != null) {
-      _titleController.text = widget.smsToEdit!.title ?? '';
-      _bodyController.text = widget.smsToEdit!.message;
-
-      // Determine orientation
-      if (widget.smsToEdit!.status == SmsStatus.draft) {
-        _selectedTimeOrientation = 'Draft';
-      } else if (widget.smsToEdit!.schedule_time != null) {
-        // Checking exact match might be tricky with microseconds, but let's try or default to specific
-        if (widget.eventDate != null &&
-            widget.smsToEdit!.schedule_time!.isAtSameMomentAs(
-              widget.eventDate!,
-            )) {
-          _selectedTimeOrientation = 'At the time of event';
-        } else {
-          // Default to Specific Date if we can't reverse engineer relative easily
-          _selectedTimeOrientation = 'Specific Date and Time';
-          _selectedDateTime = widget.smsToEdit!.schedule_time;
-        }
-      } else {
-        // Fallback
-        _selectedTimeOrientation = 'Draft';
-      }
+    if (widget.smsToEdit?.schedule_time != null) {
+      _scheduleDate = widget.smsToEdit!.schedule_time;
+      _scheduleTime = TimeOfDay.fromDateTime(widget.smsToEdit!.schedule_time!);
+    } else if (widget.eventDate != null) {
+      _scheduleDate = widget.eventDate;
+      _scheduleTime = TimeOfDay.fromDateTime(widget.eventDate!);
+    } else {
+      final now = DateTime.now();
+      _scheduleDate = now;
+      _scheduleTime = TimeOfDay.fromDateTime(now);
     }
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _bodyController.dispose();
-    _relativeTimeValueController.dispose();
-    _bodyFocusNode.dispose();
-    _titleFocusNode.dispose(); // Dispose new node
+    _messageController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDateTime() async {
-    final DateTime? date = await showDatePicker(
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDateTime ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2101),
+      initialDate: _scheduleDate ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            datePickerTheme: const DatePickerThemeData(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent,
-              headerBackgroundColor: Color(0xFFFFF0D6),
-              headerForegroundColor: Colors.black,
-            ),
-            timePickerTheme: const TimePickerThemeData(
-              backgroundColor: Colors.white,
-            ),
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFFFBB03B),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-              surface: Colors.white,
-              surfaceContainerHigh:
-                  Colors.white, // For M3 TimePicker background potentially
-            ),
-            dialogBackgroundColor: Colors.white,
+            colorScheme: const ColorScheme.light(primary: Color(0xFFFBB03B)),
           ),
           child: child!,
         );
       },
     );
-
-    if (date != null && mounted) {
-      final TimeOfDay? time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(
-          _selectedDateTime ?? DateTime.now(),
-        ),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              timePickerTheme: const TimePickerThemeData(
-                backgroundColor: Colors.white,
-                hourMinuteColor: Color(0xFFFFF0D6), // Light orange for input
-                dayPeriodColor: Color(0xFFFFF0D6), // Light orange for AM/PM
-                dialHandColor: Color(0xFFFBB03B),
-                dialBackgroundColor: Colors.white,
-              ),
-              colorScheme: const ColorScheme.light(
-                primary: Color(0xFFFBB03B),
-                onPrimary: Colors.white,
-                onSurface: Colors.black,
-                surface: Colors.white,
-                surfaceContainerHigh: Colors.white,
-                surfaceContainerHighest: Colors.white,
-              ),
-              dialogBackgroundColor: Colors.white,
-            ),
-            child: child!,
-          );
-        },
-      );
-
-      if (time != null) {
-        setState(() {
-          _selectedDateTime = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
-          );
-        });
-      }
+    if (picked != null && picked != _scheduleDate) {
+      setState(() {
+        _scheduleDate = picked;
+      });
     }
   }
 
-  DateTime _calculateRelativeTime(DateTime base, {required bool isBefore}) {
-    int value = int.tryParse(_relativeTimeValueController.text) ?? 0;
-    Duration duration;
-    switch (_relativeTimeUnit) {
-      case 'minutes':
-        duration = Duration(minutes: value);
-        break;
-      case 'hours':
-        duration = Duration(hours: value);
-        break;
-      case 'weeks':
-        duration = Duration(days: value * 7);
-        break;
-      case 'months':
-        duration = Duration(days: value * 30);
-        break;
-      case 'days':
-      default:
-        duration = Duration(days: value);
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _scheduleTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: Color(0xFFFBB03B)),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _scheduleTime) {
+      setState(() {
+        _scheduleTime = picked;
+      });
     }
-    return isBefore ? base.subtract(duration) : base.add(duration);
-  }
-
-  DateTime? get _calculatedDate {
-    if (_selectedTimeOrientation == 'Draft') {
-      return null;
-    } else if (_selectedTimeOrientation == 'Specific Date and Time') {
-      return _selectedDateTime;
-    } else if (_selectedTimeOrientation == 'At the time of event') {
-      return widget.eventDate;
-    } else if (_selectedTimeOrientation == 'Before the event') {
-      if (widget.eventDate != null) {
-        return _calculateRelativeTime(widget.eventDate!, isBefore: true);
-      }
-    } else if (_selectedTimeOrientation == 'After the event') {
-      if (widget.eventDate != null) {
-        return _calculateRelativeTime(widget.eventDate!, isBefore: false);
-      }
-    }
-    return null;
   }
 
   Future<void> _saveSms() async {
-    final finalScheduleTime = _calculatedDate;
+    if (_formKey.currentState!.validate()) {
+      if (_scheduleDate == null || _scheduleTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a date and time')),
+        );
+        return;
+      }
 
-    final sms = Sms(
-      id: widget.smsToEdit?.id, // Preserve ID if editing
-      title: _titleController.text,
-      message: _bodyController.text,
-      event_id: widget.eventId,
-      status: finalScheduleTime == null ? SmsStatus.draft : SmsStatus.pending,
-      contact_id: widget.smsToEdit?.contact_id,
-      phone_number: widget.smsToEdit?.phone_number,
-      sender_number: widget.smsToEdit?.sender_number,
-      schedule_time: finalScheduleTime,
-    );
+      final scheduledDateTime = DateTime(
+        _scheduleDate!.year,
+        _scheduleDate!.month,
+        _scheduleDate!.day,
+        _scheduleTime!.hour,
+        _scheduleTime!.minute,
+      );
 
-    if (widget.smsToEdit != null) {
-      await ref.read(smsProvider.notifier).updateSms(sms);
-    } else {
-      await ref.read(smsProvider.notifier).addSms(sms);
-    }
+      final sms = Sms(
+        id: widget.smsToEdit?.id,
+        event_id: widget.eventId,
+        title: _titleController.text,
+        message: _messageController.text,
+        status: SmsStatus.pending, // Default to pending for scheduled SMS
+        schedule_time: scheduledDateTime,
+      );
 
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-
-  Future<void> _deleteSms() async {
-    if (widget.smsToEdit?.id == null) return;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Delete SMS?'),
-        content: const Text('Are you sure you want to delete this message?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await ref.read(smsProvider.notifier).deleteSms(widget.smsToEdit!.id!);
-      if (mounted) Navigator.of(context).pop();
+      try {
+        if (widget.smsToEdit != null) {
+          await ref.read(smsProvider.notifier).updateSms(sms);
+        } else {
+          await ref.read(smsProvider.notifier).addSms(sms);
+        }
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error saving SMS: $e')));
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF5F5F5),
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        title: Text(
+          widget.smsToEdit == null ? 'Add Scheduled SMS' : 'Edit SMS',
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
-          if (widget.smsToEdit != null)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: _deleteSms,
-            ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: ElevatedButton(
-                onPressed: _saveSms,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFBB03B),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 8,
-                  ),
-                ),
-                child: Text(
-                  widget.smsToEdit != null ? 'Update' : 'Save',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
+          TextButton(
+            onPressed: _saveSms,
+            child: const Text(
+              'Save',
+              style: TextStyle(
+                color: Color(0xFFFBB03B),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
             ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title Section
-                  const Text(
-                    'Title',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: TextField(
-                      controller: _titleController,
-                      focusNode: _titleFocusNode, // Attach focus node
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Enter title',
-                        hintStyle: TextStyle(
-                          color: const Color(
-                            0xFFB3B3B3,
-                          ).withOpacity(_titleFocusNode.hasFocus ? 0.5 : 1.0),
-                        ), // Conditional opacity
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
-                      ),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // When Section
-                  const Text(
-                    'When',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _isDropdownOpen = !_isDropdownOpen;
-                      });
-                    },
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Text(
+              'Internal Title',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                hintText: 'e.g., Reminder 1',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a title';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Message Body',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _messageController,
+              maxLines: 5,
+              decoration: InputDecoration(
+                hintText: 'Type your message here...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a message';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Schedule Time',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _selectDate(context),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 12,
+                        vertical: 14,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: _isDropdownOpen
-                            ? const BorderRadius.vertical(
-                                top: Radius.circular(12),
-                              )
-                            : BorderRadius.circular(12),
                         border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          const Icon(
+                            Icons.calendar_today,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(width: 8),
                           Text(
-                            _selectedTimeOrientation,
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_isDropdownOpen)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(12),
-                        ),
-                        border: Border(
-                          left: BorderSide(color: Colors.grey.shade300),
-                          right: BorderSide(color: Colors.grey.shade300),
-                          bottom: BorderSide(color: Colors.grey.shade300),
-                        ),
-                      ),
-                      child: Column(
-                        children: _timeOptions.map((option) {
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedTimeOrientation = option;
-                                _isDropdownOpen = false;
-                              });
-                            },
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 12,
-                                horizontal: 16,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  top: BorderSide(color: Colors.grey.shade200),
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  option,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  const SizedBox(height: 24),
-
-                  // CONDITIONAL RENDER: Specific Date
-                  if (_selectedTimeOrientation == 'Specific Date and Time')
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 24.0),
-                      child: InkWell(
-                        onTap: _pickDateTime,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Text(
-                            _selectedDateTime != null
+                            _scheduleDate != null
                                 ? DateFormat(
-                                    'yyyy-MM-dd hh:mm a',
-                                  ).format(_selectedDateTime!)
-                                : 'Select Date and Time',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: _selectedDateTime != null
-                                  ? Colors.black87
-                                  : Colors.grey[400],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  // CONDITIONAL RENDER: Relative Time (Before/After)
-                  if (_selectedTimeOrientation == 'Before the event' ||
-                      _selectedTimeOrientation == 'After the event')
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Can be up to 90 days before or after the event and must be in the future.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              // Number Input
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  child: TextField(
-                                    controller: _relativeTimeValueController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      hintText: '0',
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Unit Dropdown
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _isRelativeUnitDropdownOpen =
-                                              !_isRelativeUnitDropdownOpen;
-                                        });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              _isRelativeUnitDropdownOpen
-                                              ? const BorderRadius.vertical(
-                                                  top: Radius.circular(12),
-                                                )
-                                              : BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              _relativeTimeUnit,
-                                              style: const TextStyle(
-                                                color: Colors.black87,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            Icon(
-                                              _isRelativeUnitDropdownOpen
-                                                  ? Icons.keyboard_arrow_up
-                                                  : Icons.keyboard_arrow_down,
-                                              color: Colors.grey[600],
-                                              size: 20,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    if (_isRelativeUnitDropdownOpen)
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              const BorderRadius.vertical(
-                                                bottom: Radius.circular(12),
-                                              ),
-                                          border: Border(
-                                            left: BorderSide(
-                                              color: Colors.grey.shade300,
-                                            ),
-                                            right: BorderSide(
-                                              color: Colors.grey.shade300,
-                                            ),
-                                            bottom: BorderSide(
-                                              color: Colors.grey.shade300,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Column(
-                                          children: _relativeTimeOptions.map((
-                                            option,
-                                          ) {
-                                            return InkWell(
-                                              onTap: () {
-                                                setState(() {
-                                                  _relativeTimeUnit = option;
-                                                  _isRelativeUnitDropdownOpen =
-                                                      false;
-                                                });
-                                              },
-                                              child: Container(
-                                                width: double.infinity,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 12,
-                                                      horizontal: 16,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border(
-                                                    top: BorderSide(
-                                                      color:
-                                                          Colors.grey.shade200,
-                                                    ),
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  option,
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    color: Colors.black87,
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          }).toList(),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                    'MMM dd, yyyy',
+                                  ).format(_scheduleDate!)
+                                : 'Select Date',
+                            style: const TextStyle(fontSize: 16),
                           ),
                         ],
                       ),
                     ),
-                  if (_calculatedDate != null &&
-                      (_selectedTimeOrientation == 'Before the event' ||
-                          _selectedTimeOrientation == 'After the event'))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0, bottom: 24.0),
-                      child: Text(
-                        'Scheduled for: ${DateFormat('MMMM dd, yyyy hh:mm a').format(_calculatedDate!)}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green[700],
-                        ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _selectTime(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.access_time,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _scheduleTime != null
+                                ? _scheduleTime!.format(context)
+                                : 'Select Time',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
                       ),
                     ),
-
-                  // Body SMS Section
-                  VariableTextEditor(
-                    label: 'Body SMS',
-                    controller: _bodyController,
-                    focusNode: _bodyFocusNode,
                   ),
-                  const SizedBox(height: 16),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

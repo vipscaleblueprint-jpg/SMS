@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter_contacts/flutter_contacts.dart' as flutter_contacts;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_number/mobile_number.dart';
 import '../../widgets/modals/add_tag_dialog.dart';
@@ -14,16 +13,14 @@ import '../../widgets/list/tags_list.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/tags_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../services/csv_service.dart';
-import '../../models/contact.dart';
 import '../../models/tag.dart';
+import '../../services/csv_service.dart';
 import 'add_contact_screen.dart';
 import '../send/send_screen.dart';
-import '../../widgets/header_user.dart';
 
 import '../campaigns/campaigns_screen.dart';
 
-import 'tag_detail_screen.dart';
+import '../../widgets/header_user.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final String? userName;
@@ -134,6 +131,14 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   bool _showAllContacts = true;
   final GlobalKey _addContactBtnKey = GlobalKey();
   bool _isImporting = false; // Flag to prevent concurrent imports
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<void> _importCsvContacts() async {
     // Prevent concurrent imports
@@ -404,98 +409,190 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const HeaderUser(),
-            const SizedBox(height: 24),
-
-            // Tabs: All Contacts / Manage Tags AND Add Contact Button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Area (iOS Style)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Profile Section
+                const HeaderUser(),
+                const SizedBox(height: 8),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    GestureDetector(
-                      onTap: () => setState(() => _showAllContacts = true),
-                      child: Column(
-                        children: [
-                          Text(
-                            'All Contacts',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: _showAllContacts
-                                  ? Colors.black
-                                  : Colors.grey,
-                              decoration: _showAllContacts
-                                  ? TextDecoration.underline
-                                  : null,
-                              decorationColor: Colors.black,
-                              decorationThickness: 2,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      'Contacts',
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black.withOpacity(0.9),
+                        letterSpacing: -1,
                       ),
                     ),
-                    const SizedBox(width: 20),
-                    GestureDetector(
-                      onTap: () => setState(() => _showAllContacts = false),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Manage Tags',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: !_showAllContacts
-                                  ? Colors.black
-                                  : Colors.black,
-                              decoration: !_showAllContacts
-                                  ? TextDecoration.underline
-                                  : null,
-                              decorationColor: Colors.black,
-                              decorationThickness: 2,
-                            ),
-                          ),
-                        ],
+                    IconButton(
+                      key: _addContactBtnKey,
+                      onPressed: _showAllContacts
+                          ? _showAddContactMenu
+                          : _showAddTagDialog,
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBB03B).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Color(0xFFFBB03B),
+                          size: 24,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                ElevatedButton(
-                  key: _addContactBtnKey,
-                  onPressed: _showAllContacts
-                      ? _showAddContactMenu
-                      : _showAddTagDialog,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFBB03B),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
+                const SizedBox(height: 16),
+                // Segmented Control (Refactored to fix flicker)
+                Container(
+                  height: 44,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    _showAllContacts ? 'Add Contact' : 'Add Tag',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: Stack(
+                    children: [
+                      // Animated Background Slider
+                      AnimatedAlign(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        alignment: _showAllContacts
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
+                        child: FractionallySizedBox(
+                          widthFactor: 0.5,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _SegmentToggle(
+                              label: 'All Contacts',
+                              isSelected: _showAllContacts,
+                              onTap: () =>
+                                  setState(() => _showAllContacts = true),
+                            ),
+                          ),
+                          Expanded(
+                            child: _SegmentToggle(
+                              label: 'Manage Tags',
+                              isSelected: !_showAllContacts,
+                              onTap: () =>
+                                  setState(() => _showAllContacts = false),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                // Persistent Search Bar (Moved from lists to parent to fix flicker)
+                TextField(
+                  controller: _searchController,
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  decoration: InputDecoration(
+                    hintText: _showAllContacts
+                        ? 'Search Contacts'
+                        : 'Search Tags',
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: Colors.grey.shade400,
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
               ],
             ),
-            const SizedBox(height: 24),
+          ),
 
-            // Conditional content based on tab selection
-            Expanded(
-              child: _showAllContacts ? const ContactsList() : const TagsList(),
+          // Content Area
+          Expanded(
+            child: Container(
+              color: const Color(0xFFF8F9FA),
+              padding: const EdgeInsets.symmetric(horizontal: 0),
+              child: IndexedStack(
+                index: _showAllContacts ? 0 : 1,
+                children: [
+                  ContactsList(searchQuery: _searchQuery),
+                  TagsList(searchQuery: _searchQuery),
+                ],
+              ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegmentToggle extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SegmentToggle({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        color: Colors.transparent, // Ensure the whole area is tappable
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.black : Colors.grey.shade600,
+          ),
         ),
       ),
     );

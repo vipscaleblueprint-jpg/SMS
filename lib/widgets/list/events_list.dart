@@ -7,11 +7,18 @@ import '../../providers/events_provider.dart';
 class EventsList extends ConsumerStatefulWidget {
   final Function(Event)? onTap;
   final Function(Event)? onEdit;
-  // onDelete is now handled internally via bulk or single delete action
-  final Function(Event)?
-  onDelete; // Keep for backward compatibility if needed, or remove
+  final Function(Event)? onDelete;
+  final String? searchQuery;
+  final bool showSearch;
 
-  const EventsList({super.key, this.onTap, this.onEdit, this.onDelete});
+  const EventsList({
+    super.key,
+    this.onTap,
+    this.onEdit,
+    this.onDelete,
+    this.searchQuery,
+    this.showSearch = true,
+  });
 
   @override
   ConsumerState<EventsList> createState() => _EventsListState();
@@ -64,9 +71,9 @@ class _EventsListState extends ConsumerState<EventsList> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text('Delete ${idsToDelete.length} Events?'),
+        title: Text('Delete ${idsToDelete.length} Campaigns?'),
         content: const Text(
-          'Are you sure you want to delete the selected events? This action cannot be undone.',
+          'Are you sure you want to delete the selected campaigns? This action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -92,7 +99,7 @@ class _EventsListState extends ConsumerState<EventsList> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Events deleted')));
+        ).showSnackBar(const SnackBar(content: Text('Campaigns deleted')));
       }
     }
   }
@@ -101,7 +108,8 @@ class _EventsListState extends ConsumerState<EventsList> {
   Widget build(BuildContext context) {
     final events = ref.watch(eventsProvider);
 
-    final search = _searchController.text.toLowerCase();
+    // Use widget.searchQuery if provided, otherwise internal controller
+    final search = (widget.searchQuery ?? _searchController.text).toLowerCase();
     final filteredEvents = events
         .where((event) => event.name.toLowerCase().contains(search))
         .toList();
@@ -109,23 +117,25 @@ class _EventsListState extends ConsumerState<EventsList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // "All" Tab
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'All',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                decoration: TextDecoration.underline,
-                decorationColor: Color(0xFFFBB03B), // Yellow underline
-                decorationThickness: 2,
+        // "All" Tab - Only show if we are controlling the search/header
+        if (widget.showSearch) ...[
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'All',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Color(0xFFFBB03B), // Yellow underline
+                  decorationThickness: 2,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // Toolbar / Search
         if (_isSelectionMode)
@@ -155,12 +165,12 @@ class _EventsListState extends ConsumerState<EventsList> {
               ],
             ),
           )
-        else
+        else if (widget.showSearch)
           TextField(
             controller: _searchController,
             onChanged: (value) => setState(() {}),
             decoration: InputDecoration(
-              hintText: 'Search events',
+              hintText: 'Search campaigns',
               prefixIcon: const Icon(Icons.search, color: Colors.grey),
               contentPadding: const EdgeInsets.symmetric(
                 vertical: 0,
@@ -176,11 +186,13 @@ class _EventsListState extends ConsumerState<EventsList> {
               ),
             ),
           ),
-        const SizedBox(height: 16),
+
+        // Add spacing if we showed search or if selection mode is active
+        if (widget.showSearch || _isSelectionMode) const SizedBox(height: 16),
 
         // Header Row
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -252,7 +264,7 @@ class _EventsListState extends ConsumerState<EventsList> {
             padding: EdgeInsets.all(24.0),
             child: Center(
               child: Text(
-                'No events found',
+                'No campaigns found',
                 style: TextStyle(color: Colors.grey),
               ),
             ),
@@ -293,7 +305,7 @@ class _EventsListState extends ConsumerState<EventsList> {
                   ),
                   padding: const EdgeInsets.symmetric(
                     vertical: 12.0,
-                    horizontal: 4.0,
+                    horizontal: 16.0,
                   ),
                   child: Row(
                     children: [

@@ -8,24 +8,20 @@ import '../modals/delete_tag_dialog.dart';
 import '../../screens/home/tag_detail_screen.dart';
 
 class TagsList extends ConsumerStatefulWidget {
-  const TagsList({super.key});
+  final String searchQuery;
+  const TagsList({super.key, this.searchQuery = ''});
 
   @override
   ConsumerState<TagsList> createState() => _TagsListState();
 }
 
 class _TagsListState extends ConsumerState<TagsList> {
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
+  // Removed internal _searchController as it's now managed by parent
 
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  // Dispose removed since _searchController is gone
 
   void _showEditTagDialog(Tag tag) {
     showDialog(
@@ -74,23 +70,88 @@ class _TagsListState extends ConsumerState<TagsList> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         backgroundColor: Colors.white,
-        title: Text('Delete ${idsToDelete.length} Tags?'),
-        content: const Text(
-          'Are you sure you want to delete the selected tags? This will remove them from all contacts.',
+        child: SizedBox(
+          width: 270,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    Text(
+                      'Delete ${idsToDelete.length} Tags?',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 17,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Are you sure you want to delete the selected tags? This will remove them from all contacts and cannot be undone.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w400,
+                        fontSize: 13,
+                        height: 1.3,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 0.5, thickness: 0.5, color: Colors.grey),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.pop(ctx, false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            right: BorderSide(color: Colors.grey, width: 0.5),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.pop(ctx, true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Color(0xFFFF3B30), // iOS Red
+                            fontSize: 17,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
       ),
     );
 
@@ -116,7 +177,7 @@ class _TagsListState extends ConsumerState<TagsList> {
 
     // Filter tags
     final filteredTags = tags.where((tag) {
-      return tag.name.toLowerCase().contains(_searchQuery.toLowerCase());
+      return tag.name.toLowerCase().contains(widget.searchQuery.toLowerCase());
     }).toList();
 
     return RefreshIndicator(
@@ -125,130 +186,82 @@ class _TagsListState extends ConsumerState<TagsList> {
       },
       child: Column(
         children: [
-          // ===========================
-          // TOOLBAR (Search or Actions)
-          // ===========================
+          // Search Bar Area
           if (_isSelectionMode)
             Container(
-              height: 60,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              color: const Color(0xFFFBB03B).withOpacity(0.1),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBB03B).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close_rounded),
                     onPressed: () => _toggleSelectionMode(null),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${_selectedIds.length} Selected',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  Expanded(
+                    child: Text(
+                      '${_selectedIds.length} Selected',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                  TextButton(
                     onPressed: _deleteSelected,
+                    child: const Text(
+                      'Delete',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
-            )
-          else
-            TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                hintText: 'Search tags...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 16,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-              ),
             ),
 
-          if (!_isSelectionMode)
-            const SizedBox(height: 24)
-          else
-            const SizedBox(height: 8),
+          // Removed internal TextField here, now managed by parent
 
-          // ===========================
-          // TABLE HEADERS
-          // ===========================
-          Row(
-            children: [
-              if (_isSelectionMode)
-                Padding(
-                  padding: const EdgeInsets.only(right: 12.0),
-                  child: Checkbox(
-                    value:
-                        _selectedIds.isNotEmpty &&
-                        _selectedIds.length == filteredTags.length,
-                    onChanged: (val) {
-                      if (val == true) {
-                        setState(() {
-                          _selectedIds.addAll(filteredTags.map((t) => t.id));
-                        });
-                      } else {
-                        setState(() {
-                          _selectedIds.clear();
-                        });
-                      }
-                    },
-                  ),
-                ),
-
-              const Expanded(
-                flex: 3,
-                child: Text(
-                  'Tags',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-              const Expanded(
-                flex: 2,
-                child: Text(
-                  'Contacts',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-              if (!_isSelectionMode)
-                const Expanded(
-                  // Actions column (fixed width or flex)
-                  flex: 2,
-                  child: SizedBox(), // Empty header for actions
-                ),
-            ],
-          ),
-          const Divider(height: 1),
-
-          // ===========================
-          // LIST
-          // ===========================
+          // Tags List
           Expanded(
             child: filteredTags.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No tags found',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.label_rounded,
+                          size: 48,
+                          color: Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No tags found',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   )
                 : ListView.separated(
                     itemCount: filteredTags.length,
-                    padding: const EdgeInsets.only(top: 16, bottom: 80),
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    separatorBuilder: (context, index) => Divider(
+                      height: 1,
+                      indent: 48,
+                      color: Colors.grey.shade100,
+                    ),
+
                     itemBuilder: (context, index) {
                       final tag = filteredTags[index];
                       // Calculate usage count
@@ -275,95 +288,93 @@ class _TagsListState extends ConsumerState<TagsList> {
                             _toggleSelectionMode(tag.id);
                           }
                         },
-                        borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFFFBB03B).withOpacity(0.05)
-                                : null,
-                            borderRadius: BorderRadius.circular(8),
-                            border: isSelected
-                                ? Border.all(
-                                    color: const Color(
-                                      0xFFFBB03B,
-                                    ).withOpacity(0.3),
-                                  )
-                                : null,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Row(
                             children: [
                               if (_isSelectionMode)
                                 Padding(
-                                  padding: const EdgeInsets.only(right: 12.0),
+                                  padding: const EdgeInsets.only(right: 16.0),
                                   child: Checkbox(
                                     value: isSelected,
                                     activeColor: const Color(0xFFFBB03B),
+                                    shape: const CircleBorder(),
                                     onChanged: (val) =>
                                         _toggleItemSelection(tag.id),
                                   ),
                                 ),
 
+                              // Icon
+                              Icon(
+                                Icons.label_rounded,
+                                color: const Color(0xFFFBB03B).withOpacity(0.5),
+                                size: 24,
+                              ),
+                              const SizedBox(width: 16),
+
                               // Tag Name
                               Expanded(
-                                flex: 3,
                                 child: Text(
                                   tag.name,
                                   style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.black87,
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
                                   ),
                                 ),
                               ),
-                              // Count
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  count.toString(),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: count > 0
-                                        ? const Color(0xFFFBB03B)
-                                        : Colors.grey,
+
+                              // Count & Actions
+                              if (!_isSelectionMode) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFFFBB03B,
+                                    ).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '$count',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFFBB03B),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              // Actions
-                              if (!_isSelectionMode)
-                                Expanded(
-                                  flex: 2,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          size: 20,
-                                          color: Colors.grey,
-                                        ),
-                                        onPressed: () =>
-                                            _showEditTagDialog(tag),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 20,
-                                          color: Colors.grey,
-                                        ),
-                                        onPressed: () =>
-                                            _showDeleteTagDialog(tag),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
+                                const SizedBox(width: 12),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.edit_note_rounded,
+                                    color: Colors.blue.shade300,
+                                    size: 22,
                                   ),
+                                  onPressed: () => _showEditTagDialog(tag),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                 ),
+                                const SizedBox(width: 12),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.remove_circle_outline_rounded,
+                                    color: Colors.red.shade300,
+                                    size: 22,
+                                  ),
+                                  onPressed: () => _showDeleteTagDialog(tag),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Colors.grey.shade300,
+                                  size: 20,
+                                ),
+                              ],
                             ],
                           ),
                         ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
 import '../../providers/contacts_provider.dart';
 import '../../models/contact.dart';
 import '../modals/edit_contact_dialog.dart';
@@ -264,17 +265,28 @@ class ContactRow extends StatelessWidget {
               ),
 
             // Avatar
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: const Color(0xFFFBB03B).withOpacity(0.1),
-              child: Text(
-                contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: Color(0xFFFBB03B),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
+            Container(
+              height: 44,
+              width: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBB03B).withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
+              clipBehavior: Clip.antiAlias,
+              child: contact.photoPath != null
+                  ? Image.file(File(contact.photoPath!), fit: BoxFit.cover)
+                  : Center(
+                      child: Text(
+                        contact.name.isNotEmpty
+                            ? contact.name[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          color: Color(0xFFFBB03B),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
             ),
             const SizedBox(width: 16),
 

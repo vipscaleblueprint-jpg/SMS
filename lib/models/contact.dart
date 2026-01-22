@@ -8,6 +8,7 @@ class Contact {
   final String phone;
   final DateTime created;
   final List<Tag> tags;
+  final String? photoPath;
 
   Contact({
     required this.contact_id,
@@ -17,6 +18,7 @@ class Contact {
     required this.phone,
     required this.created,
     this.tags = const [],
+    this.photoPath,
   });
 
   String get name => '$first_name $last_name'.trim();
@@ -30,6 +32,7 @@ class Contact {
     String? phone,
     DateTime? created,
     List<Tag>? tags,
+    String? photoPath,
   }) {
     return Contact(
       contact_id: contact_id ?? this.contact_id,
@@ -39,6 +42,7 @@ class Contact {
       phone: phone ?? this.phone,
       created: created ?? this.created,
       tags: tags ?? this.tags,
+      photoPath: photoPath ?? this.photoPath,
     );
   }
 
@@ -53,6 +57,7 @@ class Contact {
       'phone': phone,
       'created': created.toIso8601String(),
       'tags': tags.map((t) => t.toJson()).toList(),
+      'photoPath': photoPath,
     };
   }
 
@@ -72,6 +77,7 @@ class Contact {
               ?.map((t) => Tag.fromJson(t as Map<String, dynamic>))
               .toList() ??
           [],
+      photoPath: json['photoPath'] as String?,
     );
   }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../models/contact.dart';
 import '../../models/tag.dart';
 import '../../providers/contacts_provider.dart';
@@ -23,6 +25,7 @@ class _EditContactDialogState extends ConsumerState<EditContactDialog> {
   final TextEditingController _tagSearchController = TextEditingController();
   final FocusNode _tagFocusNode = FocusNode();
   List<Tag> _selectedTags = [];
+  String? _photoPath;
 
   @override
   void initState() {
@@ -36,6 +39,7 @@ class _EditContactDialogState extends ConsumerState<EditContactDialog> {
     _phoneController = TextEditingController(text: widget.contact.phone);
 
     _selectedTags = List.from(widget.contact.tags);
+    _photoPath = widget.contact.photoPath;
   }
 
   @override
@@ -48,6 +52,17 @@ class _EditContactDialogState extends ConsumerState<EditContactDialog> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      setState(() {
+        _photoPath = image.path;
+      });
+    }
+  }
+
   void _saveContact() {
     // Use phone number as entered (no forced +63 prefix)
     String phoneInput = _phoneController.text.trim();
@@ -57,6 +72,7 @@ class _EditContactDialogState extends ConsumerState<EditContactDialog> {
       last_name: _lastNameController.text.trim(),
       phone: phoneInput,
       tags: _selectedTags,
+      photoPath: _photoPath,
     );
 
     ref.read(contactsProvider.notifier).updateContact(updatedContact);
@@ -128,6 +144,43 @@ class _EditContactDialogState extends ConsumerState<EditContactDialog> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 24),
+
+                // Profile Photo Placeholder
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 80,
+                          width: 80,
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFBB03B).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: _photoPath != null
+                              ? Image.file(File(_photoPath!), fit: BoxFit.cover)
+                              : const Icon(
+                                  Icons.person_rounded,
+                                  size: 40,
+                                  color: Color(0xFFFBB03B),
+                                ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Change Photo',
+                          style: TextStyle(
+                            color: Color(0xFFFBB03B),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
 

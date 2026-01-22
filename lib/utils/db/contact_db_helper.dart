@@ -35,7 +35,12 @@ class ContactDbHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute('ALTER TABLE contacts ADD COLUMN photoPath TEXT');
+      // Check if column exists to avoid "duplicate column" error
+      var columns = await db.rawQuery('PRAGMA table_info(contacts)');
+      bool hasPhotoPath = columns.any((c) => c['name'] == 'photoPath');
+      if (!hasPhotoPath) {
+        await db.execute('ALTER TABLE contacts ADD COLUMN photoPath TEXT');
+      }
     }
   }
 

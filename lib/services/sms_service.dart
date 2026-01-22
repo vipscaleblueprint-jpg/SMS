@@ -47,9 +47,15 @@ class SmsService {
   }) async {
     SmsStatus status = SmsStatus.pending;
     try {
+      debugPrint(
+        '📤 Telephony: Sending message to $address (${message.length} chars)',
+      );
+      debugPrint(
+        '📄 Snippet: ${message.substring(0, message.length > 30 ? 30 : message.length)}...',
+      );
       await _telephony.sendSms(to: address, message: message);
       status = SmsStatus.sent;
-      debugPrint('✅ SMS Sent to $address');
+      debugPrint('✅ SMS Sent Successfully to $address');
     } catch (e) {
       status = SmsStatus.failed;
       debugPrint('❌ SMS Failed to $address: $e');

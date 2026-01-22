@@ -61,6 +61,15 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
 
     // Removed phone validation - accept any format
 
+    // Automatically add 'new' tag for welcome message trigger
+    final Tag newTag = await ref
+        .read(tagsProvider.notifier)
+        .getOrCreateTag('new');
+    final List<Tag> updatedTags = List.from(_selectedTags);
+    if (!updatedTags.any((t) => t.id == newTag.id)) {
+      updatedTags.add(newTag);
+    }
+
     final contact = Contact(
       contact_id: const Uuid().v4(),
       first_name: firstName,
@@ -68,7 +77,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
       phone: phone,
       email: null,
       created: DateTime.now(),
-      tags: _selectedTags,
+      tags: updatedTags,
       photoPath: _photoPath,
     );
 

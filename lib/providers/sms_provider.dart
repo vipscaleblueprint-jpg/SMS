@@ -83,6 +83,7 @@ class SmsNotifier extends Notifier<List<Sms>> {
       if (sms.schedule_time != null) {
         final updatedSms = Sms(
           id: sms.id,
+          title: sms.title,
           message: sms.message,
           contact_id: sms.contact_id,
           phone_number: sms.phone_number,

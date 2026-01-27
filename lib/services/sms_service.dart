@@ -9,15 +9,6 @@ class SmsService {
   Telephony get _telephony => Telephony.instance;
 
   Future<bool?> requestPermissions() async {
-    // First check existing status to avoid redundant requests that cause crashes
-    final smsGranted = await Permission.sms.isGranted;
-    final phoneGranted = await Permission.phone.isGranted;
-
-    if (smsGranted && phoneGranted) {
-      debugPrint('🛡️ Permissions already granted, skipping request.');
-      return true;
-    }
-
     final sms = await Permission.sms.request();
     final phone = await Permission.phone.request();
     return sms.isGranted && phone.isGranted;
@@ -47,18 +38,10 @@ class SmsService {
   }) async {
     SmsStatus status = SmsStatus.pending;
     try {
-      debugPrint(
-        '📤 Telephony: Sending message to $address (${message.length} chars)',
-      );
-      debugPrint(
-        '📄 Snippet: ${message.substring(0, message.length > 30 ? 30 : message.length)}...',
-      );
       await _telephony.sendSms(to: address, message: message);
       status = SmsStatus.sent;
-      debugPrint('✅ SMS Sent Successfully to $address');
     } catch (e) {
       status = SmsStatus.failed;
-      debugPrint('❌ SMS Failed to $address: $e');
       rethrow;
     } finally {
       // Save to database regardless of outcome
@@ -73,9 +56,14 @@ class SmsService {
           batchId: batchId,
           batchTotal: batchTotal,
         );
-        await SmsDbHelper().insertSms(sms);
+
+        if (id != null) {
+          await SmsDbHelper().updateSms(sms);
+        } else {
+          await SmsDbHelper().insertSms(sms);
+        }
       } catch (dbError) {
-        debugPrint('Error saving SMS to database: $dbError');
+        print('Error saving SMS to database: $dbError');
       }
     }
   }
@@ -128,16 +116,10 @@ class SmsService {
     int simSlot = 1,
     Duration delay = const Duration(milliseconds: 200),
   }) async* {
-    debugPrint(
-      '🏁 sendBatchSmsWithDetails: starting for ${contacts.length} contacts',
-    );
     int sentCount = 0;
     final batchId = 'batch_${DateTime.now().millisecondsSinceEpoch}';
     final batchTotal = contacts.length;
     for (final contact in contacts) {
-      debugPrint(
-        '👉 sendBatchSmsWithDetails: Iterating contact ${contact.phone}',
-      );
       // Reuse sendFlexibleSms logic for substitution and sending
       try {
         await sendFlexibleSms(

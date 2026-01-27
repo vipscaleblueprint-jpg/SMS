@@ -25,23 +25,7 @@ class ContactDbHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'sms_app.db');
 
-    return openDatabase(
-      path,
-      version: 2,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Check if column exists to avoid "duplicate column" error
-      var columns = await db.rawQuery('PRAGMA table_info(contacts)');
-      bool hasPhotoPath = columns.any((c) => c['name'] == 'photoPath');
-      if (!hasPhotoPath) {
-        await db.execute('ALTER TABLE contacts ADD COLUMN photoPath TEXT');
-      }
-    }
+    return openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -52,8 +36,7 @@ class ContactDbHelper {
         last_name TEXT NOT NULL,
         email TEXT,
         phone TEXT NOT NULL,
-        created TEXT NOT NULL,
-        photoPath TEXT
+        created TEXT NOT NULL
       )
     ''');
 
@@ -92,7 +75,6 @@ class ContactDbHelper {
         'email': contact.email,
         'phone': contact.phone,
         'created': contact.created.toIso8601String(),
-        'photoPath': contact.photoPath,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
 
       for (final tag in contact.tags) {
@@ -125,7 +107,6 @@ class ContactDbHelper {
           'last_name': contact.last_name,
           'email': contact.email,
           'phone': contact.phone,
-          'photoPath': contact.photoPath,
         },
         where: 'contact_id = ?',
         whereArgs: [contact.contact_id],
@@ -179,7 +160,6 @@ class ContactDbHelper {
           email: row['email'] as String?,
           phone: row['phone'] as String,
           created: DateTime.parse(row['created'] as String),
-          photoPath: row['photoPath'] as String?,
           tags: tags,
         ),
       );
@@ -210,7 +190,6 @@ class ContactDbHelper {
           email: row['email'] as String?,
           phone: row['phone'] as String,
           created: DateTime.parse(row['created'] as String),
-          photoPath: row['photoPath'] as String?,
           tags: tags,
         ),
       );
@@ -241,7 +220,6 @@ class ContactDbHelper {
           email: row['email'] as String?,
           phone: row['phone'] as String,
           created: DateTime.parse(row['created'] as String),
-          photoPath: row['photoPath'] as String?,
           tags: tags,
         ),
       );

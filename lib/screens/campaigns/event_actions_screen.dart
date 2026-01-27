@@ -184,7 +184,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'Scheduled SMS',
+                            'Event Actions',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,

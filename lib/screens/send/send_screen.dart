@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/list/dropdown-contacts.dart';
 import '../../providers/send_message_provider.dart';
+import '../../widgets/modals/delete_confirmation_dialog.dart';
 import '../../providers/contacts_provider.dart';
 import '../../widgets/header_user.dart';
 
@@ -267,65 +268,17 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   void _showStopConfirmationDialog(String id) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-              child: Text(
-                'Are you sure you want to\nstop sending?',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  height: 1.2,
-                ),
-              ),
-            ),
-            const Divider(height: 1, thickness: 1),
-            InkWell(
-              onTap: () {
-                ref.read(sendMessageProvider.notifier).stopSending(id);
-                Navigator.of(context).pop();
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Text(
-                  'Stop',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFFF5252), // Red
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-            const Divider(height: 1, thickness: 1),
-            InkWell(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Text(
-                  'Cancel',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      builder: (context) => DeleteConfirmationDialog(
+        title: 'Are you sure you want to\nstop sending?',
+        message: '',
+        deleteButtonText: 'Stop',
+        deleteButtonColor: const Color(0xFFFF5252),
       ),
-    );
+    ).then((confirm) {
+      if (confirm == true) {
+        ref.read(sendMessageProvider.notifier).stopSending(id);
+      }
+    });
   }
 
   // Dropdown methods removed (moved to DropdownContacts)

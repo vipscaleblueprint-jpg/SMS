@@ -5,6 +5,7 @@ import '../../utils/db/scheduled_db_helper.dart';
 import '../../widgets/modals/select_tags_dialog.dart';
 import '../../providers/tags_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../widgets/modals/delete_confirmation_dialog.dart';
 
 class AddMasterSequenceScreen extends ConsumerStatefulWidget {
   final MasterSequence? sequence;
@@ -104,6 +105,29 @@ class _AddMasterSequenceScreenState
                 message: content,
                 delayDays: delay,
               ),
+            );
+          });
+        },
+      ),
+    );
+  }
+
+  void _editMessage(int index) {
+    final msg = _messages[index];
+    showDialog(
+      context: context,
+      builder: (context) => _AddMessageDialog(
+        initialTitle: msg.title,
+        initialMessage: msg.message,
+        initialDelay: msg.delayDays,
+        onSave: (title, content, delay) {
+          setState(() {
+            _messages[index] = SequenceMessage(
+              id: msg.id,
+              sequenceId: msg.sequenceId,
+              title: title,
+              message: content,
+              delayDays: delay,
             );
           });
         },
@@ -324,34 +348,38 @@ class _AddMasterSequenceScreenState
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.grey.shade200),
                           ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            title: Text(
-                              msg.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                          child: InkWell(
+                            onTap: () => _editMessage(idx),
+                            borderRadius: BorderRadius.circular(12),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
                               ),
-                            ),
-                            subtitle: Text(
-                              'Day ${msg.delayDays}: ${msg.message}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 13,
+                              title: Text(
+                                msg.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
                               ),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(
-                                Icons.remove_circle_outline,
-                                color: Colors.red,
-                                size: 20,
+                              subtitle: Text(
+                                'Day ${msg.delayDays}: ${msg.message}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 13,
+                                ),
                               ),
-                              onPressed: () => _confirmDeleteMessage(idx),
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.remove_circle_outline,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                onPressed: () => _confirmDeleteMessage(idx),
+                              ),
                             ),
                           ),
                         );
@@ -370,36 +398,33 @@ class _AddMasterSequenceScreenState
   void _confirmDeleteMessage(int index) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Message?'),
-        content: const Text(
-          'Are you sure you want to remove this message from the sequence?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _messages.removeAt(index);
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      builder: (context) => const DeleteConfirmationDialog(
+        title: 'Delete Message?',
+        message:
+            'Are you sure you want to remove this message from the sequence?',
       ),
-    );
+    ).then((confirm) {
+      if (confirm == true) {
+        setState(() {
+          _messages.removeAt(index);
+        });
+      }
+    });
   }
 }
 
 class _AddMessageDialog extends StatefulWidget {
+  final String? initialTitle;
+  final String? initialMessage;
+  final int? initialDelay;
   final Function(String, String, int) onSave;
 
-  const _AddMessageDialog({required this.onSave});
+  const _AddMessageDialog({
+    this.initialTitle,
+    this.initialMessage,
+    this.initialDelay,
+    required this.onSave,
+  });
 
   @override
   State<_AddMessageDialog> createState() => _AddMessageDialogState();
@@ -428,7 +453,9 @@ class _AddMessageDialogState extends State<_AddMessageDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedDays = 0;
+    _titleController.text = widget.initialTitle ?? '';
+    _contentController.text = widget.initialMessage ?? '';
+    _selectedDays = widget.initialDelay ?? 0;
   }
 
   @override
@@ -442,9 +469,14 @@ class _AddMessageDialogState extends State<_AddMessageDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Add Drip Message',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                widget.initialTitle == null
+                    ? 'Add Drip Message'
+                    : 'Edit Drip Message',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 20),
               const Text(
@@ -539,9 +571,14 @@ class _AddMessageDialogState extends State<_AddMessageDialog> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                   ),
-                  child: const Text(
-                    'Add to Sequence',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  child: Text(
+                    widget.initialTitle == null
+                        ? 'Add to Sequence'
+                        : 'Update Message',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),

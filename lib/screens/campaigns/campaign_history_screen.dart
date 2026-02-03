@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../widgets/header_user.dart';
 import '../../widgets/list/events_list.dart';
 import '../../widgets/modals/campaign_dialog.dart';
+import '../../widgets/modals/delete_confirmation_dialog.dart';
 import '../../providers/events_provider.dart';
 import '../../models/events.dart';
 import 'event_actions_screen.dart';
@@ -64,20 +65,9 @@ class _CampaignHistoryScreenState extends ConsumerState<CampaignHistoryScreen> {
   Future<void> _deleteEvent(Event event) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Event?'),
-        content: Text('Are you sure you want to delete "${event.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
+      builder: (context) => DeleteConfirmationDialog(
+        title: 'Delete Event?',
+        message: 'Are you sure you want to delete "${event.name}"?',
       ),
     );
 

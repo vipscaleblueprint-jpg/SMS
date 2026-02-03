@@ -4,7 +4,7 @@ import '../../providers/tags_provider.dart';
 import '../../providers/contacts_provider.dart';
 import '../../models/tag.dart';
 import '../modals/edit_tag_dialog.dart';
-import '../modals/delete_tag_dialog.dart';
+import '../modals/delete_confirmation_dialog.dart';
 import '../../screens/home/tag_detail_screen.dart';
 
 class TagsList extends ConsumerStatefulWidget {
@@ -33,8 +33,16 @@ class _TagsListState extends ConsumerState<TagsList> {
   void _showDeleteTagDialog(Tag tag) {
     showDialog(
       context: context,
-      builder: (context) => DeleteTagDialog(tag: tag),
-    );
+      builder: (context) => DeleteConfirmationDialog(
+        title: 'Delete Tag',
+        message:
+            'Are you sure you want to delete "${tag.name}"? This action cannot be undone.',
+      ),
+    ).then((confirm) {
+      if (confirm == true) {
+        ref.read(tagsProvider.notifier).removeTag(tag.id);
+      }
+    });
   }
 
   void _toggleSelectionMode(String? initialId) {
@@ -70,88 +78,10 @@ class _TagsListState extends ConsumerState<TagsList> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        backgroundColor: Colors.white,
-        child: SizedBox(
-          width: 270,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    Text(
-                      'Delete ${idsToDelete.length} Tags?',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 17,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Are you sure you want to delete the selected tags? This will remove them from all contacts and cannot be undone.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w400,
-                        fontSize: 13,
-                        height: 1.3,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 0.5, thickness: 0.5, color: Colors.grey),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => Navigator.pop(ctx, false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            right: BorderSide(color: Colors.grey, width: 0.5),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => Navigator.pop(ctx, true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Delete',
-                          style: TextStyle(
-                            color: Color(0xFFFF3B30), // iOS Red
-                            fontSize: 17,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+      builder: (ctx) => DeleteConfirmationDialog(
+        title: 'Delete ${idsToDelete.length} Tags?',
+        message:
+            'Are you sure you want to delete the selected tags? This will remove them from all contacts and cannot be undone.',
       ),
     );
 

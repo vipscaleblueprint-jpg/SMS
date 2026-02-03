@@ -3,6 +3,7 @@ import '../../models/scheduled_group.dart';
 import '../../models/scheduled_sms.dart';
 import '../../utils/db/scheduled_db_helper.dart';
 import '../../utils/scheduling_utils.dart';
+import '../../widgets/variable_text_editor.dart';
 
 class AddScheduledMessageScreen extends StatefulWidget {
   final ScheduledGroup group;
@@ -25,12 +26,9 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
     text:
         "Subject: Thanks, your spot is saved!\n\n{{first_name}}\n\nThanks for registering for [your webinar name]!\nHere are the details of when we're starting:\nTime: {{ event_time | date: \"%B %d, %Y %I:%M%p (%Z)\" }}\n\nThe webinar link will be emailed to you on the day of the event :)\n\nHere's what I'll be covering in the webinar:\n[insert a numbered list or bullet points of the topics you'll be talking about in the live stream]\n\nTalk soon,\nYour Name",
   );
-  final TextEditingController _customizationController =
-      TextEditingController();
   final ScrollController _monthlyScrollController = ScrollController();
   final ScrollController _weeklyScrollController = ScrollController();
   final FocusNode _bodyFocusNode = FocusNode();
-  TextSelection _lastSelection = const TextSelection.collapsed(offset: -1);
 
   // Frequency State
   bool _isFrequencyDropdownOpen = false;
@@ -38,12 +36,6 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
   int? _selectedDay; // For monthly frequency
   TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
   final List<String> _frequencyOptions = ['Monthly', 'Weekly'];
-
-  final Map<String, String> _variables = {
-    'First Name': '{{first_name}}',
-    'Last Name': '{{last_name}}',
-    'Full Name': '{{full_name}}',
-  };
 
   @override
   void initState() {
@@ -63,10 +55,7 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
   }
 
   void _handleSelectionChanged() {
-    final selection = _bodyController.selection;
-    if (selection.isValid) {
-      _lastSelection = selection;
-    }
+    // Selection handling moved to VariableTextEditor or no longer needed here
   }
 
   @override
@@ -74,8 +63,6 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
     _bodyController.removeListener(_handleSelectionChanged);
     _titleController.dispose();
     _bodyController.dispose();
-    _customizationController.dispose();
-    _monthlyScrollController.dispose();
     _weeklyScrollController.dispose();
     _bodyFocusNode.dispose();
     super.dispose();
@@ -162,9 +149,9 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF5F5F5),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
@@ -226,19 +213,22 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                   ),
                   const SizedBox(height: 8),
                   Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: TextField(
                       controller: _titleController,
                       decoration: const InputDecoration(
-                        hintText: 'Hello Message',
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        hintText: 'Enter title',
+                        contentPadding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
                       ),
                     ),
                   ),
@@ -268,6 +258,7 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
+                        color: Colors.white,
                         border: Border.all(
                           color: _selectedFrequency != null
                               ? const Color(0xFFFBB03B)
@@ -575,6 +566,7 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
+                        color: Colors.white,
                         border: Border.all(color: Colors.grey.shade300),
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -597,145 +589,13 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                   const SizedBox(height: 24),
 
                   // Body SMS Section
-                  const Text(
-                    'Body SMS',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 300,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: TextField(
-                      controller: _bodyController,
-                      focusNode: _bodyFocusNode,
-                      maxLines: null,
-                      expands: true,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                      ),
-                      style: const TextStyle(fontSize: 14, height: 1.5),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Customization Section (PopupMenuButton for variables)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: PopupMenuButton<String>(
-                      color: Colors.white,
-                      surfaceTintColor: Colors.white,
-                      onSelected: (value) {
-                        final placeholder = _variables[value] ?? '';
-                        if (placeholder.isNotEmpty) {
-                          final text = _bodyController.text;
-
-                          // Use _lastSelection if valid, otherwise try current controller selection
-                          TextSelection selection = _lastSelection;
-                          if (!selection.isValid) {
-                            selection = _bodyController.selection;
-                          }
-
-                          int start = selection.start;
-                          int end = selection.end;
-
-                          // Safety checks for bounds
-                          if (start < 0 || start > text.length)
-                            start = text.length;
-                          if (end < 0 || end > text.length) end = text.length;
-                          if (end < start) end = start;
-
-                          final newText = text.replaceRange(
-                            start,
-                            end,
-                            placeholder,
-                          );
-
-                          _bodyController.value = TextEditingValue(
-                            text: newText,
-                            selection: TextSelection.collapsed(
-                              offset: start + placeholder.length,
-                            ),
-                          );
-
-                          // Restore focus
-                          _bodyFocusNode.requestFocus();
-                        }
-                      },
-                      itemBuilder: (BuildContext context) {
-                        return _variables.keys.map((String key) {
-                          return PopupMenuItem<String>(
-                            value: key,
-                            child: Text(key),
-                          );
-                        }).toList();
-                      },
-                      offset: const Offset(0, 40),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFBB03B),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        child: const Text(
-                          'Add Customization',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
+                  VariableTextEditor(
+                    label: 'Body SMS',
+                    controller: _bodyController,
+                    focusNode: _bodyFocusNode,
                   ),
                   const SizedBox(height: 16),
                 ],
-              ),
-            ),
-          ),
-
-          // Floating Customization Input (Message)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade200),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: TextField(
-                  controller: _customizationController,
-                  decoration: const InputDecoration(
-                    hintText: 'Message',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
               ),
             ),
           ),

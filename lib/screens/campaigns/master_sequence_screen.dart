@@ -3,6 +3,7 @@ import '../../models/master_sequence.dart';
 import '../../utils/db/scheduled_db_helper.dart';
 import '../../widgets/header_user.dart';
 import 'add_master_sequence_screen.dart';
+import '../../widgets/modals/delete_confirmation_dialog.dart';
 
 class MasterSequenceScreen extends StatefulWidget {
   const MasterSequenceScreen({super.key});
@@ -333,23 +334,14 @@ class _MasterSequenceScreenState extends State<MasterSequenceScreen> {
   void _showDeleteConfirmation(MasterSequence sequence) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Sequence?'),
-        content: Text('Are you sure you want to delete "${sequence.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              _deleteSequence(sequence.id!);
-              Navigator.pop(context);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      builder: (context) => DeleteConfirmationDialog(
+        title: 'Delete Sequence?',
+        message: 'Are you sure you want to delete "${sequence.title}"?',
       ),
-    );
+    ).then((confirm) {
+      if (confirm == true) {
+        _deleteSequence(sequence.id!);
+      }
+    });
   }
 }

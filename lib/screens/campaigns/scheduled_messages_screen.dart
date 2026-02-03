@@ -8,6 +8,7 @@ import '../../providers/scheduled_provider.dart';
 import '../../models/scheduled_group.dart';
 import '../../widgets/list/dropdown-contacts.dart';
 import '../../widgets/scheduling_debug_panel.dart';
+import '../../widgets/modals/delete_confirmation_dialog.dart';
 
 class ScheduledMessagesScreen extends ConsumerStatefulWidget {
   const ScheduledMessagesScreen({super.key});
@@ -445,119 +446,19 @@ class _ScheduledMessagesScreenState
                     if (group.id == null) return;
                     showDialog(
                       context: context,
-                      builder: (context) => Dialog(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.warning,
-                                    color: Colors.red.shade700,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Expanded(
-                                    child: Text(
-                                      'Delete this Schedule?',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              RichText(
-                                text: TextSpan(
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                  children: [
-                                    const TextSpan(
-                                      text:
-                                          'Are you sure you want to delete the ',
-                                    ),
-                                    TextSpan(
-                                      text: '${group.title} ',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const TextSpan(text: 'Schedule?\n\n'),
-                                    const TextSpan(
-                                      text:
-                                          'Deleting this schedule will result in the following actions that you may want to consider before moving forward.',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  OutlinedButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.grey,
-                                      side: BorderSide(
-                                        color: Colors.grey.shade300,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(24),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 12,
-                                      ),
-                                    ),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      ref
-                                          .read(
-                                            scheduledGroupsProvider.notifier,
-                                          )
-                                          .deleteGroup(group.id!);
-                                      Navigator.of(context).pop();
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(24),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 12,
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Delete schedule',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                      builder: (context) => DeleteConfirmationDialog(
+                        title: 'Delete this Schedule?',
+                        message:
+                            'Are you sure you want to delete the ${group.title} Schedule?\n\nDeleting this schedule will result in the following actions that you may want to consider before moving forward.',
+                        deleteButtonText: 'Delete schedule',
                       ),
-                    );
+                    ).then((confirm) {
+                      if (confirm == true && group.id != null) {
+                        ref
+                            .read(scheduledGroupsProvider.notifier)
+                            .deleteGroup(group.id!);
+                      }
+                    });
                   },
                   child: Icon(
                     Icons.delete_outline,

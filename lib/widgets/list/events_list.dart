@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/events.dart';
 import '../../providers/events_provider.dart';
+import '../modals/delete_confirmation_dialog.dart';
 
 class EventsList extends ConsumerStatefulWidget {
   final Function(Event)? onTap;
@@ -62,23 +63,10 @@ class _EventsListState extends ConsumerState<EventsList> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text('Delete ${idsToDelete.length} Events?'),
-        content: const Text(
-          'Are you sure you want to delete the selected events? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
+      builder: (ctx) => DeleteConfirmationDialog(
+        title: 'Delete ${idsToDelete.length} Events?',
+        message:
+            'Are you sure you want to delete the selected events? This action cannot be undone.',
       ),
     );
 

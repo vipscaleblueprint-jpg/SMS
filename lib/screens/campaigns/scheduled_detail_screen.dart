@@ -96,9 +96,9 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Match screenshot white bg
+      backgroundColor: const Color(0xFFF5F5F5), // Match screenshot white bg
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF5F5F5),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
@@ -243,7 +243,7 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
                   )
                 else
                   Container(
-                    color: const Color(0xFFF6F6F6), // Light grey background
+                    color: Colors.transparent, // Light grey background
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Builder(
                       builder: (context) {
@@ -301,7 +301,7 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
                       border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
                     ),
                     child: const Text(
-                      '+ Add Message',
+                      '+ Add SMS',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,

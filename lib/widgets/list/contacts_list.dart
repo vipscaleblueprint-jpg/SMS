@@ -4,6 +4,7 @@ import 'dart:io';
 import '../../providers/contacts_provider.dart';
 import '../../models/contact.dart';
 import '../modals/edit_contact_dialog.dart';
+import '../modals/delete_confirmation_dialog.dart';
 
 class ContactsList extends ConsumerStatefulWidget {
   final String searchQuery;
@@ -56,23 +57,10 @@ class _ContactsListState extends ConsumerState<ContactsList> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text('Delete ${idsToDelete.length} Contacts?'),
-        content: const Text(
-          'Are you sure you want to delete the selected contacts? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
+      builder: (ctx) => DeleteConfirmationDialog(
+        title: 'Delete ${idsToDelete.length} Contacts?',
+        message:
+            'Are you sure you want to delete the selected contacts? This action cannot be undone.',
       ),
     );
 

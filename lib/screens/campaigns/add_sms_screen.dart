@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/sms.dart';
 import '../../providers/sms_provider.dart';
 import '../../widgets/variable_text_editor.dart';
+import '../../widgets/modals/delete_confirmation_dialog.dart';
 
 class AddSmsScreen extends ConsumerStatefulWidget {
   final String eventTitle;
@@ -301,21 +302,9 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Delete SMS?'),
-        content: const Text('Are you sure you want to delete this message?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
+      builder: (ctx) => const DeleteConfirmationDialog(
+        title: 'Delete SMS?',
+        message: 'Are you sure you want to delete this message?',
       ),
     );
 
@@ -332,6 +321,15 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF5F5F5),
         elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'Campaign Message',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),

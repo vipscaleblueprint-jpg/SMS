@@ -315,6 +315,19 @@ class _ScheduledDetailScreenState extends State<ScheduledDetailScreen> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) =>
+                  AddScheduledMessageScreen(group: widget.group),
+            ),
+          );
+          _loadMessages(); // Refresh list
+        },
+        backgroundColor: const Color(0xFFFBB03B),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
 

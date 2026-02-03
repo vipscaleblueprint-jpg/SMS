@@ -429,6 +429,33 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          DateTime? parsedEventDate;
+          try {
+            parsedEventDate = DateTime.tryParse(widget.eventDate);
+            parsedEventDate ??= DateFormat(
+              'MMM dd, yyyy hh:mm a',
+            ).parse(widget.eventDate);
+          } catch (_) {}
+
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder: (context) => AddSmsScreen(
+                    eventTitle: widget.eventTitle,
+                    eventId: widget.eventId,
+                    eventDate: parsedEventDate,
+                  ),
+                ),
+              )
+              .then((_) {
+                ref.invalidate(eventSmsProvider(widget.eventId));
+              });
+        },
+        backgroundColor: const Color(0xFFFBB03B),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
 

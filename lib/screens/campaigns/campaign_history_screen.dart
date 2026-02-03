@@ -48,7 +48,14 @@ class _CampaignHistoryScreenState extends ConsumerState<CampaignHistoryScreen> {
       builder: (context) => CampaignDialog(
         event: event,
         onSave: (title, date, recipients) async {
-          // update logic
+          final updatedEvent = Event(
+            id: event.id,
+            name: title,
+            date: DateFormat('yyyy-MM-dd hh:mm a').parse(date),
+            status: event.status,
+            recipients: recipients,
+          );
+          await ref.read(eventsProvider.notifier).updateEvent(updatedEvent);
         },
       ),
     );

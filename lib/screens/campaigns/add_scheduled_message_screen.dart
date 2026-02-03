@@ -36,6 +36,7 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
   bool _isFrequencyDropdownOpen = false;
   String? _selectedFrequency; // Null means "Please Select Frequency"
   int? _selectedDay; // For monthly frequency
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
   final List<String> _frequencyOptions = ['Monthly', 'Weekly'];
 
   final Map<String, String> _variables = {
@@ -53,6 +54,11 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
       _bodyController.text = widget.messageToEdit!.message;
       _selectedFrequency = widget.messageToEdit!.frequency;
       _selectedDay = widget.messageToEdit!.scheduledDay;
+      if (widget.messageToEdit!.scheduledTime != null) {
+        _selectedTime = TimeOfDay.fromDateTime(
+          widget.messageToEdit!.scheduledTime!,
+        );
+      }
     }
   }
 
@@ -107,11 +113,15 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
         scheduledTime = SchedulingUtils.getNextMonthlyDate(
           _selectedDay!,
           DateTime.now(),
+          hour: _selectedTime.hour,
+          minute: _selectedTime.minute,
         );
       } else if (_selectedFrequency == 'Weekly' && _selectedDay != null) {
         scheduledTime = SchedulingUtils.getNextWeeklyDate(
           _selectedDay!,
           DateTime.now(),
+          hour: _selectedTime.hour,
+          minute: _selectedTime.minute,
         );
       }
 
@@ -518,6 +528,72 @@ class _AddScheduledMessageScreenState extends State<AddScheduledMessageScreen> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 24),
+
+                  // Time Field
+                  const Text(
+                    'Time',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final TimeOfDay? picked = await showTimePicker(
+                        context: context,
+                        initialTime: _selectedTime,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(
+                                primary: Color(0xFFFBB03B),
+                                onPrimary: Colors.white,
+                                onSurface: Colors.black,
+                              ),
+                              textButtonTheme: TextButtonThemeData(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFFFBB03B),
+                                ),
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _selectedTime = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _selectedTime.format(context),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Icon(Icons.access_time, color: Colors.grey[600]),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
 
                   // Body SMS Section

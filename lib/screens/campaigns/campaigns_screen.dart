@@ -39,7 +39,7 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Events Title (Buttons removed)
                     Column(
@@ -97,13 +97,10 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                                 ],
                               ),
                             ),
-                            Transform.rotate(
-                              angle: -0.5, // Tilted paper plane
-                              child: const Icon(
-                                Icons.send,
-                                color: Colors.grey,
-                                size: 32,
-                              ),
+                            const Icon(
+                              Icons.mark_email_unread_outlined,
+                              color: Colors.grey,
+                              size: 32,
                             ),
                           ],
                         ),
@@ -150,13 +147,10 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                                 ],
                               ),
                             ),
-                            Transform.rotate(
-                              angle: -0.5,
-                              child: const Icon(
-                                Icons.send,
-                                color: Colors.grey,
-                                size: 32,
-                              ),
+                            const Icon(
+                              Icons.schedule_send_outlined,
+                              color: Colors.grey,
+                              size: 32,
                             ),
                           ],
                         ),
@@ -203,13 +197,10 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                                 ],
                               ),
                             ),
-                            Transform.rotate(
-                              angle: -0.5,
-                              child: const Icon(
-                                Icons.send,
-                                color: Colors.grey,
-                                size: 32,
-                              ),
+                            const Icon(
+                              Icons.playlist_play_outlined,
+                              color: Colors.grey,
+                              size: 32,
                             ),
                           ],
                         ),
@@ -250,13 +241,10 @@ class _CampaignsScreenState extends ConsumerState<CampaignsScreen> {
                                 ],
                               ),
                             ),
-                            Transform.rotate(
-                              angle: -0.5,
-                              child: const Icon(
-                                Icons.send,
-                                color: Colors.grey,
-                                size: 32,
-                              ),
+                            const Icon(
+                              Icons.calendar_month_outlined,
+                              color: Colors.grey,
+                              size: 32,
                             ),
                           ],
                         ),

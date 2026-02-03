@@ -5,12 +5,15 @@ import '../models/scheduled_sms.dart';
 import '../utils/db/contact_db_helper.dart';
 import '../utils/db/scheduled_db_helper.dart';
 import '../utils/db/sms_db_helper.dart';
+import '../utils/db/event_db_helper.dart';
+import 'dart:convert';
+import '../models/events.dart';
 import '../utils/scheduling_utils.dart';
 import '../models/sms.dart' as sms_model;
 import 'sms_service.dart';
 
 @pragma('vm:entry-point')
-void dispatcher() async {
+Future<void> dispatcher() async {
   final now = DateTime.now();
   debugPrint('⏰ Background check at $now');
 
@@ -21,8 +24,8 @@ void dispatcher() async {
   try {
     // 1. Process Campaign Messages (Recurring)
     final dueMessages = await dbHelper.getDueMessages(now);
+    debugPrint('Due Campaign Messages count: ${dueMessages.length}');
     if (dueMessages.isNotEmpty) {
-      debugPrint('Found ${dueMessages.length} due campaign messages.');
       final smsService = SmsService();
       for (final msg in dueMessages) {
         await SchedulingService.processMessage(
@@ -36,8 +39,8 @@ void dispatcher() async {
 
     // 2. Process One-Time Scheduled Messages (SendScreen)
     final dueOneTime = await oneTimeDbHelper.getDueOneTimeMessages(now);
+    debugPrint('Due One-Time Messages count: ${dueOneTime.length}');
     if (dueOneTime.isNotEmpty) {
-      debugPrint('Found ${dueOneTime.length} due one-time messages.');
       final smsService = SmsService();
       for (final msg in dueOneTime) {
         await SchedulingService.processOneTimeMessage(
@@ -47,7 +50,24 @@ void dispatcher() async {
         );
       }
     }
-    // 3. Process Master Sequences (Drip)
+    // 3. Process Event Messages (Broadcasts)
+    final dueEvents = await oneTimeDbHelper.getDueEventMessages(now);
+    debugPrint('Due Event Template Messages count: ${dueEvents.length}');
+    if (dueEvents.isNotEmpty) {
+      final smsService = SmsService();
+      final eventDb = EventDbHelper();
+      for (final msg in dueEvents) {
+        await SchedulingService.processEventTemplate(
+          msg,
+          oneTimeDbHelper,
+          eventDb,
+          contactDb,
+          smsService,
+        );
+      }
+    }
+
+    // 4. Process Master Sequences (Drip)
     await SchedulingService.processSequences(dbHelper, contactDb, SmsService());
   } catch (e) {
     debugPrint('❌ Error in background dispatcher: $e');
@@ -161,14 +181,19 @@ class SchedulingService {
 
       // 3. Send SMS (Loop through contacts)
       debugPrint('Sending to ${targetContacts.length} contacts...');
+      final batchId =
+          'campaign_${msg.id}_${DateTime.now().millisecondsSinceEpoch}';
+      final batchTotal = targetContacts.length;
+
       for (final contact in targetContacts) {
         try {
           // Use SmsService's flexible send logic
           await smsService.sendFlexibleSms(
             contact: contact,
             message: msg.message,
-            instant:
-                true, // Background send is technically "instant" once triggered
+            instant: true,
+            batchId: batchId,
+            batchTotal: batchTotal,
           );
         } catch (e) {
           debugPrint('Failed to send to ${contact.phone}: $e');
@@ -177,15 +202,23 @@ class SchedulingService {
 
       // 4. Update Message Status / Calculate Next Run
       DateTime? nextRun;
+      final originalTime = msg.scheduledTime;
+      final hour = originalTime?.hour ?? 9;
+      final minute = originalTime?.minute ?? 0;
+
       if (msg.frequency == 'Monthly' && msg.scheduledDay != null) {
         nextRun = SchedulingUtils.getNextMonthlyDate(
           msg.scheduledDay!,
           DateTime.now(),
+          hour: hour,
+          minute: minute,
         );
       } else if (msg.frequency == 'Weekly' && msg.scheduledDay != null) {
         nextRun = SchedulingUtils.getNextWeeklyDate(
           msg.scheduledDay!,
           DateTime.now(),
+          hour: hour,
+          minute: minute,
         );
       }
 
@@ -299,6 +332,119 @@ class SchedulingService {
       }
     } catch (e) {
       debugPrint('❌ Error processing sequences: $e');
+    }
+  }
+
+  static Future<void> processEventTemplate(
+    sms_model.Sms msg,
+    SmsDbHelper dbHelper,
+    EventDbHelper eventDb,
+    ContactDbHelper contactDb,
+    SmsService smsService,
+  ) async {
+    debugPrint(
+      'Processing Event Broadcast: ${msg.title} (Event: ${msg.event_id})',
+    );
+
+    if (msg.event_id == null) return;
+
+    try {
+      // 1. Resolve Event
+      final event = await eventDb.getEventById(msg.event_id!);
+      if (event == null) {
+        debugPrint(
+          '⚠️ Event ${msg.event_id} not found. Marking message as failed.',
+        );
+        final failedSms = sms_model.Sms(
+          id: msg.id,
+          title: msg.title,
+          message: msg.message,
+          event_id: msg.event_id,
+          status: sms_model.SmsStatus.failed,
+          schedule_time: msg.schedule_time,
+        );
+        await dbHelper.updateSms(failedSms);
+        return;
+      }
+
+      // 2. Resolve Recipients
+      final Set<Contact> targetContacts = {};
+      if (event.recipients != null) {
+        try {
+          final decoded = jsonDecode(event.recipients!) as Map<String, dynamic>;
+
+          if (decoded.containsKey('contacts')) {
+            final contactIds = List<String>.from(decoded['contacts']);
+            if (contactIds.isNotEmpty) {
+              final contacts = await contactDb.getContactsByIds(contactIds);
+              targetContacts.addAll(contacts);
+            }
+          }
+
+          if (decoded.containsKey('tags')) {
+            final tagIds = List<String>.from(decoded['tags']);
+            if (tagIds.isNotEmpty) {
+              final contacts = await contactDb.getContactsByTagIds(tagIds);
+              debugPrint(
+                'Resolved ${contacts.length} contacts from tags: $tagIds',
+              );
+              targetContacts.addAll(contacts);
+            }
+          }
+        } catch (e) {
+          debugPrint('❌ Error parsing event recipients: $e');
+        }
+      }
+
+      if (targetContacts.isEmpty) {
+        debugPrint(
+          '⚠️ No recipients resolved for event ${event.id}. Marking template as sent (nothing to do).',
+        );
+        final completedSms = sms_model.Sms(
+          id: msg.id,
+          title: msg.title,
+          message: msg.message,
+          event_id: msg.event_id,
+          status: sms_model
+              .SmsStatus
+              .sent, // We mark as sent to stop it re-triggering
+          schedule_time: msg.schedule_time,
+        );
+        await dbHelper.updateSms(completedSms);
+        return;
+      }
+
+      // 3. Broadcast SMS
+      debugPrint('Broadcasting to ${targetContacts.length} contacts...');
+      for (final contact in targetContacts) {
+        try {
+          await smsService.sendFlexibleSms(
+            contact: contact,
+            message: msg.message,
+            instant: true,
+            batchId:
+                'event_${msg.id}_${DateTime.now().millisecondsSinceEpoch}', // Group these messages in history
+            additionalTags: {'event_time': event.date.toIso8601String()},
+          );
+        } catch (e) {
+          debugPrint('Failed to send to ${contact.phone}: $e');
+        }
+      }
+
+      // 4. Update Template Status
+      final sentSms = sms_model.Sms(
+        id: msg.id,
+        title: msg.title,
+        message: msg.message,
+        event_id: msg.event_id,
+        status: sms_model.SmsStatus.sent,
+        schedule_time: msg.schedule_time,
+        sentTimeStamps: DateTime.now(),
+      );
+      await dbHelper.updateSms(sentSms);
+      debugPrint('✅ Event Broadcast ${msg.id} completed.');
+    } catch (e) {
+      debugPrint('❌ Error processing event broadcast ${msg.id}: $e');
     }
   }
 }

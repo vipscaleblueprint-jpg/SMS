@@ -79,13 +79,57 @@ class _AddSmsScreenState extends ConsumerState<AddSmsScreen> {
         _selectedTimeOrientation = 'Draft';
       } else if (widget.smsToEdit!.schedule_time != null) {
         // Checking exact match might be tricky with microseconds, but let's try or default to specific
-        if (widget.eventDate != null &&
-            widget.smsToEdit!.schedule_time!.isAtSameMomentAs(
-              widget.eventDate!,
-            )) {
-          _selectedTimeOrientation = 'At the time of event';
+        if (widget.eventDate != null) {
+          final diff = widget.smsToEdit!.schedule_time!.difference(
+            widget.eventDate!,
+          );
+
+          if (diff.inSeconds == 0) {
+            _selectedTimeOrientation = 'At the time of event';
+          } else {
+            // Check for relative match
+            final isAfter = !diff.isNegative;
+            final absDiff = diff.abs();
+
+            String? bestUnit;
+            int? bestValue;
+
+            if (absDiff.inMinutes > 0 && absDiff.inSeconds % 60 == 0) {
+              // Try to find the largest clean unit
+              if (absDiff.inDays > 0 && absDiff.inHours % 24 == 0) {
+                if (absDiff.inDays % 30 == 0) {
+                  bestUnit = 'months';
+                  bestValue = absDiff.inDays ~/ 30;
+                } else if (absDiff.inDays % 7 == 0) {
+                  bestUnit = 'weeks';
+                  bestValue = absDiff.inDays ~/ 7;
+                } else {
+                  bestUnit = 'days';
+                  bestValue = absDiff.inDays;
+                }
+              } else if (absDiff.inHours > 0 && absDiff.inMinutes % 60 == 0) {
+                bestUnit = 'hours';
+                bestValue = absDiff.inHours;
+              } else {
+                bestUnit = 'minutes';
+                bestValue = absDiff.inMinutes;
+              }
+            }
+
+            if (bestUnit != null && bestValue != null) {
+              _selectedTimeOrientation = isAfter
+                  ? 'After the event'
+                  : 'Before the event';
+              _relativeTimeUnit = bestUnit;
+              _relativeTimeValueController.text = bestValue.toString();
+            } else {
+              // Fallback to specific if no clean relative mapping found
+              _selectedTimeOrientation = 'Specific Date and Time';
+              _selectedDateTime = widget.smsToEdit!.schedule_time;
+            }
+          }
         } else {
-          // Default to Specific Date if we can't reverse engineer relative easily
+          // No event date to compare against
           _selectedTimeOrientation = 'Specific Date and Time';
           _selectedDateTime = widget.smsToEdit!.schedule_time;
         }

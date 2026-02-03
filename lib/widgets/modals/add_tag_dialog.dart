@@ -17,7 +17,7 @@ class _AddTagDialogState extends ConsumerState<AddTagDialog> {
     final tagName = _tagController.text.trim();
     if (tagName.isNotEmpty) {
       final newTag = Tag(
-        id: tagName, // Simple ID for now
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: tagName,
         created: DateTime.now(),
       );

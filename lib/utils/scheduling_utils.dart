@@ -70,6 +70,21 @@ class SchedulingUtils {
     int hour = 9,
     int minute = 0,
   }) {
+    // 1. Try today
+    if (from.weekday == targetWeekday) {
+      final targetToday = DateTime(
+        from.year,
+        from.month,
+        from.day,
+        hour,
+        minute,
+      );
+      if (targetToday.isAfter(from)) {
+        return targetToday;
+      }
+    }
+
+    // 2. Otherwise find next occurrence
     int daysUntil = targetWeekday - from.weekday;
     if (daysUntil <= 0) {
       daysUntil += 7;

@@ -328,6 +328,7 @@ class ScheduledDbHelper {
 
   Future<List<ScheduledSms>> getDueMessages(DateTime now) async {
     final db = await database;
+    final nowStr = now.toIso8601String();
 
     // Join with scheduled_groups to ensure the group is active (published)
     final List<Map<String, dynamic>> maps = await db.rawQuery(
@@ -340,7 +341,7 @@ class ScheduledDbHelper {
         AND g.is_active = 1
         AND m.scheduled_time <= ?
     ''',
-      [now.toIso8601String()],
+      [nowStr],
     );
 
     return List.generate(maps.length, (i) {

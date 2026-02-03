@@ -1,17 +1,25 @@
 import 'package:another_telephony/telephony.dart' hide SmsStatus;
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/contact.dart';
 import '../models/sms.dart';
 import '../utils/db/sms_db_helper.dart';
 
 class SmsService {
-  Telephony get _telephony => Telephony.instance;
+  Telephony? _telephonyInstance;
+  Telephony get _telephony => _telephonyInstance ??= Telephony.instance;
 
   Future<bool?> requestPermissions() async {
-    final sms = await Permission.sms.request();
-    final phone = await Permission.phone.request();
-    return sms.isGranted && phone.isGranted;
+    final status = await [
+      Permission.sms,
+      Permission.phone,
+      Permission.contacts,
+      Permission.notification,
+    ].request();
+
+    return status[Permission.sms]?.isGranted == true &&
+        status[Permission.phone]?.isGranted == true;
   }
 
   Future<List<SmsMessage>> getInboxMessages() async {
@@ -36,35 +44,86 @@ class SmsService {
     String? batchId,
     int? batchTotal,
   }) async {
+    // 1. Proactive Permission Guard
+    // The background service (SchedulingService) calls this.
+    // If permission is missing, another_telephony might try to request it on the main thread,
+    // causing "IllegalStateException: Reply already submitted" crash.
+    final isGranted = await Permission.sms.isGranted;
+    if (!isGranted) {
+      debugPrint('❌ SMS Permission NOT GRANTED. Aborting send to $address');
+      _saveSmsStatus(
+        id,
+        contactId,
+        address,
+        message,
+        SmsStatus.failed,
+        batchId,
+        batchTotal,
+      );
+      return;
+    }
+
     SmsStatus status = SmsStatus.pending;
     try {
-      await _telephony.sendSms(to: address, message: message);
+      debugPrint(
+        '📱 SmsService: Calling _telephony.sendSms to $address (len: ${message.length})...',
+      );
+      // Some versions of telephony use isMultipart for long messages
+      await _telephony.sendSms(
+        to: address,
+        message: message,
+        isMultipart: true, // Handle messages > 160 characters
+        statusListener: (status) {
+          debugPrint('📡 Telephony status for $address: $status');
+        },
+      );
+      debugPrint('✅ SmsService: _telephony.sendSms RETURNED for $address');
       status = SmsStatus.sent;
+      debugPrint('✅ SMS status: SENT to $address');
     } catch (e) {
       status = SmsStatus.failed;
-      rethrow;
+      debugPrint('❌ Failed to send SMS to $address: $e');
     } finally {
-      // Save to database regardless of outcome
-      try {
-        final sms = Sms(
-          id: id,
-          contact_id: contactId,
-          phone_number: address,
-          message: message,
-          status: status,
-          sentTimeStamps: status == SmsStatus.sent ? DateTime.now() : null,
-          batchId: batchId,
-          batchTotal: batchTotal,
-        );
+      await _saveSmsStatus(
+        id,
+        contactId,
+        address,
+        message,
+        status,
+        batchId,
+        batchTotal,
+      );
+    }
+  }
 
-        if (id != null) {
-          await SmsDbHelper().updateSms(sms);
-        } else {
-          await SmsDbHelper().insertSms(sms);
-        }
-      } catch (dbError) {
-        print('Error saving SMS to database: $dbError');
+  Future<void> _saveSmsStatus(
+    int? id,
+    String? contactId,
+    String address,
+    String message,
+    SmsStatus status,
+    String? batchId,
+    int? batchTotal,
+  ) async {
+    try {
+      final sms = Sms(
+        id: id,
+        contact_id: contactId,
+        phone_number: address,
+        message: message,
+        status: status,
+        sentTimeStamps: status == SmsStatus.sent ? DateTime.now() : null,
+        batchId: batchId,
+        batchTotal: batchTotal,
+      );
+
+      if (id != null) {
+        await SmsDbHelper().updateSms(sms);
+      } else {
+        await SmsDbHelper().insertSms(sms);
       }
+    } catch (dbError) {
+      debugPrint('❌ Error saving SMS to database: $dbError');
     }
   }
 
@@ -152,17 +211,77 @@ class SmsService {
     int simSlot = 1,
     String? batchId,
     int? batchTotal,
+    Map<String, String>? additionalTags,
   }) async {
     debugPrint(
       '🔵 sendFlexibleSms called - instant: $instant, scheduledTime: $scheduledTime',
     );
 
-    // Perform variable substitution
-    String finalMessage = message
-        .replaceAll('{{first_name}}', contact.first_name)
-        .replaceAll('{{last_name}}', contact.last_name)
-        .replaceAll('{{name}}', contact.name)
-        .replaceAll('{{email}}', contact.email ?? '');
+    // 1. Strip "Subject: " if present at the start (common in copy-pasted templates)
+    String finalMessage = message;
+    if (finalMessage.toLowerCase().startsWith('subject:')) {
+      final lines = finalMessage.split('\n');
+      if (lines.isNotEmpty) {
+        // Remove the first line if it contains the subject
+        final firstLine = lines.first;
+        if (firstLine.toLowerCase().startsWith('subject:')) {
+          finalMessage = lines.skip(1).join('\n').trim();
+        }
+      }
+    }
+
+    // 2. Perform variable substitution (Case-insensitive, space-insensitive)
+    finalMessage = finalMessage
+        .replaceAll(
+          RegExp(r'\{\{\s*first_name\s*\}\}', caseSensitive: false),
+          contact.first_name,
+        )
+        .replaceAll(
+          RegExp(r'\{\{\s*last_name\s*\}\}', caseSensitive: false),
+          contact.last_name,
+        )
+        .replaceAll(
+          RegExp(r'\{\{\s*name\s*\}\}', caseSensitive: false),
+          contact.name,
+        )
+        .replaceAll(
+          RegExp(r'\{\{\s*email\s*\}\}', caseSensitive: false),
+          contact.email ?? '',
+        );
+
+    // 3. Handle additional tags
+    if (additionalTags != null) {
+      additionalTags.forEach((key, value) {
+        // Handle date filters if the value is a date string
+        // Regex to match {{ key | date: "format" }} or just {{ key }}
+        final dateRegex = RegExp(
+          '\\{\\{\\s*$key\\s*\\|\\s*date:\\s*[\"\'](.*?)[\"\']\\s*\\}\\}',
+        );
+        final simpleRegex = RegExp('\\{\\{\\s*$key\\s*\\}\\}');
+
+        final dateMatches = dateRegex.allMatches(finalMessage);
+        if (dateMatches.isNotEmpty) {
+          try {
+            final dt = DateTime.tryParse(value);
+            if (dt != null) {
+              for (final match in dateMatches) {
+                final liquidFormat = match.group(1) ?? '';
+                final formattedDate = _formatLiquidDate(dt, liquidFormat);
+                finalMessage = finalMessage.replaceFirst(
+                  match.group(0)!,
+                  formattedDate,
+                );
+              }
+            }
+          } catch (e) {
+            debugPrint('Error formatting date for tag $key: $e');
+          }
+        }
+
+        // Final simple replacement for non-filtered tags
+        finalMessage = finalMessage.replaceAll(simpleRegex, value);
+      });
+    }
 
     if (instant) {
       debugPrint('📤 Sending instant SMS to ${contact.phone}');
@@ -222,6 +341,34 @@ class SmsService {
       }
     } else {
       debugPrint('⚠️ No scheduled time provided for non‑instant send');
+    }
+  }
+
+  String _formatLiquidDate(DateTime dt, String format) {
+    if (format.isEmpty) return dt.toString();
+
+    // Simple conversion from Liquid/strftime to intl DateFormat
+    String pattern = format
+        .replaceAll('%B', 'MMMM')
+        .replaceAll('%b', 'MMM')
+        .replaceAll('%d', 'dd')
+        .replaceAll('%Y', 'yyyy')
+        .replaceAll('%y', 'yy')
+        .replaceAll('%I', 'hh')
+        .replaceAll('%H', 'HH')
+        .replaceAll('%M', 'mm')
+        .replaceAll('%S', 'ss')
+        .replaceAll('%k', 'H')
+        .replaceAll('%l', 'h')
+        .replaceAll('%p', 'a')
+        .replaceAll('%P', 'a')
+        .replaceAll('%Z', 'v');
+
+    try {
+      return DateFormat(pattern).format(dt);
+    } catch (e) {
+      debugPrint('DateFormat error: $e');
+      return dt.toString();
     }
   }
 }

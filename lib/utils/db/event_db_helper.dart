@@ -76,6 +76,18 @@ class EventDbHelper {
     });
   }
 
+  Future<Event?> getEventById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'events',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (maps.isEmpty) return null;
+    return Event.fromMap(maps.first);
+  }
+
   Future<int> updateEvent(Event event) async {
     final db = await database;
     return await db.update(

@@ -140,7 +140,7 @@ class CsvService {
             .split(',')
             .map(
               (tName) => Tag(
-                id: tName.trim(),
+                id: 'csv_${DateTime.now().millisecondsSinceEpoch}_${tName.trim().hashCode}',
                 name: tName.trim(),
                 created: DateTime.now(),
               ),

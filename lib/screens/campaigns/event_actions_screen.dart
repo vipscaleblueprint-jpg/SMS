@@ -109,9 +109,9 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5), // Light grey background
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF5F5F5),
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
@@ -161,23 +161,24 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F1F1),
-              borderRadius: BorderRadius.circular(16),
+              // Match card style: white bg (default), border, rounded 12
               border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Event Actions Header with Toggle (Includes Date)
                 Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFEEEEEE)),
                     ),
                   ),
-                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
                       Row(
@@ -202,7 +203,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      // Date Row inside the gray box
+                      // Date Row
                       Row(
                         children: [
                           Icon(
@@ -225,11 +226,9 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                     ],
                   ),
                 ),
-                const Divider(height: 1),
 
                 // Search Bar
-                Container(
-                  color: Colors.white,
+                Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16.0,
                     vertical: 8.0,
@@ -263,7 +262,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                     ),
                   ),
                 ),
-                const Divider(height: 1),
+                const Divider(height: 1, color: Color(0xFFEEEEEE)),
 
                 // Action List Items
                 smsListAsync.when(
@@ -315,55 +314,69 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                     return Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          color: const Color(
-                            0xFFF6F6F6,
-                          ), // Light grey list area
-                          padding: const EdgeInsets.symmetric(vertical: 0),
-                          child: ListView(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(vertical: 0),
-                            children: sortedList.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final sms = entry.value;
-                              final isLast = index == sortedList.length - 1;
+                        if (sortedList.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Center(
+                              child: Text(
+                                "No SMS found",
+                                style: TextStyle(color: Colors.grey[400]),
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            color: const Color(
+                              0xFFF6F6F6,
+                            ), // Light grey list area
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: ListView(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(vertical: 0),
+                              children: sortedList.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final sms = entry.value;
+                                final isLast = index == sortedList.length - 1;
 
-                              bool nextIsDraft = false;
-                              if (!isLast) {
-                                final nextSms = sortedList[index + 1];
-                                nextIsDraft =
-                                    nextSms.status == SmsStatus.draft &&
-                                    nextSms.schedule_time == null;
-                              }
+                                bool nextIsDraft = false;
+                                if (!isLast) {
+                                  final nextSms = sortedList[index + 1];
+                                  nextIsDraft =
+                                      nextSms.status == SmsStatus.draft &&
+                                      nextSms.schedule_time == null;
+                                }
 
-                              bool prevIsDraft = false;
-                              if (index > 0) {
-                                final prevSms = sortedList[index - 1];
-                                prevIsDraft =
-                                    prevSms.status == SmsStatus.draft &&
-                                    prevSms.schedule_time == null;
-                              }
+                                bool prevIsDraft = false;
+                                if (index > 0) {
+                                  final prevSms = sortedList[index - 1];
+                                  prevIsDraft =
+                                      prevSms.status == SmsStatus.draft &&
+                                      prevSms.schedule_time == null;
+                                }
 
-                              return _buildSmsItem(
-                                sms,
-                                index,
-                                isLast,
-                                nextIsDraft,
-                                prevIsDraft,
-                              );
-                            }).toList(),
+                                return _buildSmsItem(
+                                  sms,
+                                  index,
+                                  isLast,
+                                  nextIsDraft,
+                                  prevIsDraft,
+                                );
+                              }).toList(),
+                            ),
                           ),
-                        ),
                         // + Add SMS button inside card
                         InkWell(
                           onTap: () {
                             DateTime? parsedEventDate;
                             try {
-                              parsedEventDate = DateFormat(
+                              parsedEventDate = DateTime.tryParse(
+                                widget.eventDate,
+                              );
+                              parsedEventDate ??= DateFormat(
                                 'MMM dd, yyyy hh:mm a',
                               ).parse(widget.eventDate);
-                            } catch (e) {}
+                            } catch (_) {}
 
                             Navigator.of(context)
                                 .push(
@@ -382,13 +395,14 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                                 });
                           },
                           child: Container(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
                             width: double.infinity,
                             decoration: const BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.only(
-                                bottomLeft: Radius.circular(16),
-                                bottomRight: Radius.circular(16),
+                              border: Border(
+                                top: BorderSide(color: Color(0xFFEEEEEE)),
                               ),
                             ),
                             child: const Text(
@@ -410,14 +424,11 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
                   ),
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
-
-                // Add SMS Button removed from here (moved inside card)
               ],
             ),
           ),
         ),
       ),
-      // FAB removed to match mockup
     );
   }
 
@@ -469,19 +480,24 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
     // Scheduled items (even if set to 'draft' status when event is paused) should appear as cards with checkmarks.
     final isDraft = sms.status == SmsStatus.draft && sms.schedule_time == null;
 
-    // Margin/Padding - drafts have minimal spacing, pending/sent have card padding
-    final margin = isDraft
-        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 0)
-        : const EdgeInsets.symmetric(horizontal: 16, vertical: 6);
+    // Determine styles - Unified Card Style for all items (Draft or Scheduled) to match user expectation
+    const margin = EdgeInsets.symmetric(horizontal: 16, vertical: 6);
+    const padding = EdgeInsets.all(16);
+
+    final decoration = BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Colors.grey.shade200),
+    );
 
     final isUnpublished = !_isActionsEnabled && sms.schedule_time != null;
-    const padding = EdgeInsets.all(16);
 
     return InkWell(
       onTap: () async {
         DateTime? parsedEventDate;
         try {
-          parsedEventDate = DateFormat(
+          parsedEventDate = DateTime.tryParse(widget.eventDate);
+          parsedEventDate ??= DateFormat(
             'MMM dd, yyyy hh:mm a',
           ).parse(widget.eventDate);
         } catch (_) {}
@@ -504,16 +520,7 @@ class _EventActionsScreenState extends ConsumerState<EventActionsScreen> {
       child: Container(
         margin: margin,
         padding: padding,
-        decoration: isDraft
-            ? const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-              )
-            : BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white),
-              ),
+        decoration: decoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

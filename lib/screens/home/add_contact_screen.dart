@@ -7,6 +7,7 @@ import '../../models/tag.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/tags_provider.dart';
 import '../../widgets/modals/select_tags_dialog.dart';
+import '../../services/sequence_service.dart';
 
 class AddContactScreen extends ConsumerStatefulWidget {
   const AddContactScreen({super.key});
@@ -46,6 +47,19 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
 
     // Removed phone validation - accept any format
 
+    // Auto-add "new" tag if not already present
+    final List<Tag> finalTags = List.from(_selectedTags);
+    try {
+      final newTag = await ref
+          .read(tagsProvider.notifier)
+          .getOrCreateTag('new');
+      if (!finalTags.any((t) => t.id == newTag.id)) {
+        finalTags.add(newTag);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to get/create "new" tag: $e');
+    }
+
     final contact = Contact(
       contact_id: const Uuid().v4(),
       first_name: firstName,
@@ -53,12 +67,15 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
       phone: phone,
       email: null,
       created: DateTime.now(),
-      tags: _selectedTags,
+      tags: finalTags,
     );
 
     try {
       // Add contact via provider (ref provided by ConsumerState)
       await ref.read(contactsProvider.notifier).addContact(contact);
+
+      // Trigger sequence check (Immediate)
+      await SequenceService().checkTriggers(contact);
 
       if (!mounted) return;
 

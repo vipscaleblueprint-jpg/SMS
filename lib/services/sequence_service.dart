@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import '../models/contact.dart';
 import '../models/master_sequence.dart';
+import '../models/tag.dart';
 import '../utils/db/scheduled_db_helper.dart';
+import '../utils/db/tags_db_helper.dart';
 
 class SequenceService {
   final ScheduledDbHelper _db = ScheduledDbHelper();
@@ -109,5 +111,88 @@ class SequenceService {
       }
     }
     debugPrint('--- END INSPECTION ---\n');
+  }
+
+  /// Ensures the "Welcome Sequence" exists and is tied to the 'new' tag.
+  Future<void> initializeWelcomeSequence() async {
+    debugPrint('🚀 Initializing Welcome Sequence...');
+    try {
+      final tagsDb = TagsDbHelper.instance;
+
+      // 1. Get or create 'new' tag
+      var newTag = await tagsDb.getTagByName('new');
+      if (newTag == null) {
+        debugPrint('Creating "new" tag...');
+        newTag = Tag(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: 'new',
+          created: DateTime.now(),
+        );
+        await tagsDb.insertTag(newTag);
+      }
+
+      // 2. Get or create Master Sequence
+      final sequences = await _db.getMasterSequences();
+      var welcomeSeq = sequences.firstWhere(
+        (s) => s.title == 'Welcome Sequence' || s.tagId == newTag!.id,
+        orElse: () => MasterSequence(title: '', tagId: '', isActive: false),
+      );
+
+      int seqId;
+      if (welcomeSeq.id == null) {
+        debugPrint('Creating "Welcome Sequence"...');
+        welcomeSeq = MasterSequence(
+          title: 'Welcome Sequence',
+          tagId: newTag.id,
+          isActive: true,
+        );
+        seqId = await _db.insertMasterSequence(welcomeSeq);
+      } else {
+        seqId = welcomeSeq.id!;
+      }
+
+      // 3. Ensure the welcome message exists and is correct
+      const welcomeText =
+          'Welcome and thank you for connecting with us!\n\n'
+          'We\'re pleased to have you as part of our contact list. By joining us, you\'ll receive relevant updates, insights, and information about our products, services, and industry developments that we believe will be valuable to you.\n\n'
+          'Our goal is to keep you informed, supported, and up to date with content that helps you make confident, informed decisions. From time to time, we may also share important announcements, resources, or opportunities tailored to your interests.\n\n'
+          'If you have any questions or would like to learn more about how we can support your business, please don\'t hesitate to reach out. We look forward to building a productive and successful relationship with you.\n\n'
+          'Warm regards,\n'
+          'VIP SCALE';
+
+      final messages = await _db.getSequenceMessages(seqId);
+      if (messages.isEmpty) {
+        debugPrint('Creating initial welcome message...');
+        final welcomeMsg = SequenceMessage(
+          sequenceId: seqId,
+          title: 'Welcome Message',
+          message: welcomeText,
+          delayDays: 0,
+        );
+        await _db.insertSequenceMessage(welcomeMsg);
+      } else if (messages.first.message.trim().length < 50) {
+        // If message is too short (likely a placeholder), update it
+        debugPrint('Updating short placeholder welcome message...');
+        final existing = messages.first;
+        final updated = SequenceMessage(
+          id: existing.id,
+          sequenceId: existing.sequenceId,
+          title: existing.title,
+          message: welcomeText,
+          delayDays: existing.delayDays,
+        );
+
+        final dbInstance = await _db.database;
+        await dbInstance.update(
+          'sequence_messages',
+          updated.toMap(),
+          where: 'id = ?',
+          whereArgs: [existing.id],
+        );
+      }
+      debugPrint('✅ Welcome Sequence initialized.');
+    } catch (e) {
+      debugPrint('❌ Failed to initialize welcome sequence: $e');
+    }
   }
 }

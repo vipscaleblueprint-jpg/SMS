@@ -8,6 +8,7 @@ import '../utils/db/event_db_helper.dart';
 import 'dart:convert';
 import '../utils/db/contact_db_helper.dart';
 import '../services/sms_service.dart';
+import '../services/sequence_service.dart';
 import '../models/contact.dart';
 
 /// Debug helper widget for testing scheduled messages
@@ -456,6 +457,20 @@ class SchedulingDebugPanel extends StatelessWidget {
                 color: Colors.brown,
               ),
               _CompactButton(
+                onPressed: () async {
+                  await SequenceService().initializeWelcomeSequence();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🌱 Welcome Sequence Seeded/Checked!'),
+                    ),
+                  );
+                },
+                icon: Icons.auto_awesome,
+                label: 'Seed Welcome',
+                color: Colors.teal,
+              ),
+              _CompactButton(
                 onPressed: () => _repairTagIds(context),
                 icon: Icons.build,
                 label: 'Repair Tags',
@@ -488,6 +503,42 @@ class SchedulingDebugPanel extends StatelessWidget {
                   for (var g in groups)
                     debugPrint(
                       'ID: ${g['id']} | Title: ${g['title']} | Tags: ${g['tag_ids']}',
+                    );
+
+                  // 4. Scheduled Messages
+                  final schedMsgs = await scheduledDb.query(
+                    'scheduled_messages',
+                  );
+                  debugPrint('\n--- 📨 CAMPAIGN TEMPLATES ---');
+                  for (var m in schedMsgs)
+                    debugPrint(
+                      'ID: ${m['id']} | Title: ${m['title']} | Status: ${m['status']}',
+                    );
+
+                  // 5. Master Sequences
+                  final sequences = await scheduledDb.query('master_sequences');
+                  debugPrint('\n--- 🤖 MASTER SEQUENCES ---');
+                  for (var s in sequences)
+                    debugPrint(
+                      'ID: ${s['id']} | Title: ${s['title']} | TagID: ${s['tag_id']}',
+                    );
+
+                  // 6. Sequence Messages
+                  final seqMsgs = await scheduledDb.query('sequence_messages');
+                  debugPrint('\n--- ✉️ SEQUENCE MESSAGES ---');
+                  for (var m in seqMsgs)
+                    debugPrint(
+                      'ID: ${m['id']} | SeqID: ${m['sequence_id']} | Delay: ${m['delay_days']}d | Message: ${m['message'].toString().substring(0, m['message'].toString().length > 30 ? 30 : m['message'].toString().length)}...',
+                    );
+
+                  // 7. Subscriptions
+                  final subs = await scheduledDb.query(
+                    'sequence_subscriptions',
+                  );
+                  debugPrint('\n--- 🔗 SUBSCRIPTIONS ---');
+                  for (var sub in subs)
+                    debugPrint(
+                      'ID: ${sub['id']} | ContactID: ${sub['contact_id']} | SeqID: ${sub['sequence_id']}',
                     );
 
                   // 4. Scheduled Messages (Templates)

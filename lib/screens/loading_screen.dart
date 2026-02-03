@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/scheduling_service.dart';
+import '../services/sequence_service.dart';
 
 import '../utils/db/user_db_helper.dart';
 import 'login_screen.dart';
@@ -25,6 +26,8 @@ class _LoadingScreenState extends State<LoadingScreen> {
     await _requestPermissions();
     // Initialize Scheduling
     await SchedulingService.initialize();
+    // Initialize Welcome Sequence
+    await SequenceService().initializeWelcomeSequence();
     // Check Session
     await _checkSession();
   }

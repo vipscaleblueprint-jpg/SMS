@@ -74,6 +74,31 @@ class TagsDbHelper {
     }
   }
 
+  Future<Tag?> getTagByName(String name) async {
+    final db = await database;
+    try {
+      final rows = await db.query(
+        'tags',
+        where: 'LOWER(name) = ?',
+        whereArgs: [name.toLowerCase()],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      final row = rows.first;
+      return Tag(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        color: row['color'] as String?,
+        created: row['created'] != null
+            ? DateTime.parse(row['created'] as String)
+            : null,
+      );
+    } catch (e) {
+      debugPrint('❌ Error getting tag by name: $e');
+      return null;
+    }
+  }
+
   Future<void> insertTag(Tag tag) async {
     final db = await database;
     await db.insert('tags', {

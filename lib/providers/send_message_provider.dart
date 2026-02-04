@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/sms_service.dart';
 import 'contacts_provider.dart';
+import 'user_provider.dart';
 import 'tags_provider.dart';
 import '../models/contact.dart';
 import '../models/sms.dart';
@@ -240,6 +241,10 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
     // Because ListView is reversed: Index 0 => Bottom
     state = state.copyWith(messages: [newMessage, ...state.messages]);
 
+    // Fetch sender name for variable resolution
+    final user = ref.read(userProvider);
+    final senderName = user.name;
+
     final stream = _smsService.sendBatchSmsWithDetails(
       contacts: targetContacts,
       message: text,
@@ -247,6 +252,7 @@ class SendMessageNotifier extends Notifier<SendMessageState> {
       scheduledTime: scheduledTime,
       simSlot: simSlot,
       delay: const Duration(milliseconds: 1000),
+      senderName: senderName,
     );
 
     _subscriptions[newMessage.id] = stream.listen(

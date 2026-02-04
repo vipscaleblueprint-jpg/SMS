@@ -11,6 +11,7 @@ import '../models/events.dart';
 import '../utils/scheduling_utils.dart';
 import '../models/sms.dart' as sms_model;
 import 'sms_service.dart';
+import '../utils/db/user_db_helper.dart';
 
 @pragma('vm:entry-point')
 Future<void> dispatcher() async {
@@ -20,8 +21,17 @@ Future<void> dispatcher() async {
   final dbHelper = ScheduledDbHelper();
   final oneTimeDbHelper = SmsDbHelper();
   final contactDb = ContactDbHelper.instance;
+  final userDb = UserDbHelper();
 
   try {
+    // 0. Fetch User Profile for sender name resolution
+    String? senderName;
+    final user = await userDb.getUser();
+    if (user != null) {
+      senderName = user.name;
+    }
+    debugPrint('👤 Sender Name for this run: $senderName');
+
     // 1. Process Campaign Messages (Recurring)
     final dueMessages = await dbHelper.getDueMessages(now);
     debugPrint('Due Campaign Messages count: ${dueMessages.length}');
@@ -33,6 +43,7 @@ Future<void> dispatcher() async {
           dbHelper,
           contactDb,
           smsService,
+          senderName: senderName,
         );
       }
     }
@@ -47,6 +58,7 @@ Future<void> dispatcher() async {
           msg,
           oneTimeDbHelper,
           smsService,
+          senderName: senderName,
         );
       }
     }
@@ -63,12 +75,18 @@ Future<void> dispatcher() async {
           eventDb,
           contactDb,
           smsService,
+          senderName: senderName,
         );
       }
     }
 
     // 4. Process Master Sequences (Drip)
-    await SchedulingService.processSequences(dbHelper, contactDb, SmsService());
+    await SchedulingService.processSequences(
+      dbHelper,
+      contactDb,
+      SmsService(),
+      senderName: senderName,
+    );
   } catch (e) {
     debugPrint('❌ Error in background dispatcher: $e');
   }
@@ -98,8 +116,9 @@ class SchedulingService {
   static Future<void> processOneTimeMessage(
     sms_model.Sms msg,
     SmsDbHelper dbHelper,
-    SmsService smsService,
-  ) async {
+    SmsService smsService, {
+    String? senderName,
+  }) async {
     debugPrint('Processing One-Time: ${msg.id} for ${msg.phone_number}');
     if (msg.phone_number == null) {
       debugPrint(
@@ -125,6 +144,11 @@ class SchedulingService {
         message: msg.message,
         id: msg.id, // Pass ID to update existing record
         contactId: msg.contact_id,
+        // Proactively resolve your_name here if needed, but sendSms also calls flexible send eventually?
+        // Wait, sendSms in SmsService DOES NOT call flexibleSend. It sends RAW.
+        // We should use flexible send if we want variable resolution for one-time messages too,
+        // BUT traditionally one-time messages are already resolved in the UI.
+        // Let's check SendScreen.
       );
       // Removed redundant updateSms call as sendSms now handles it.
     } catch (e) {
@@ -137,8 +161,9 @@ class SchedulingService {
     ScheduledSms msg,
     ScheduledDbHelper dbHelper,
     ContactDbHelper contactDb,
-    SmsService smsService,
-  ) async {
+    SmsService smsService, {
+    String? senderName,
+  }) async {
     debugPrint('Processing: ${msg.title}');
 
     try {
@@ -194,6 +219,7 @@ class SchedulingService {
             instant: true,
             batchId: batchId,
             batchTotal: batchTotal,
+            senderName: senderName,
           );
         } catch (e) {
           debugPrint('Failed to send to ${contact.phone}: $e');
@@ -246,8 +272,9 @@ class SchedulingService {
   static Future<void> processSequences(
     ScheduledDbHelper dbHelper,
     ContactDbHelper contactDb,
-    SmsService smsService,
-  ) async {
+    SmsService smsService, {
+    String? senderName,
+  }) async {
     debugPrint('Processing Master Sequences...');
     try {
       final subscriptions = await dbHelper.getSubscriptions();
@@ -314,6 +341,7 @@ class SchedulingService {
                   contact: contact,
                   message: msg.message,
                   instant: true,
+                  senderName: senderName,
                 );
 
                 // Log as sent
@@ -340,8 +368,9 @@ class SchedulingService {
     SmsDbHelper dbHelper,
     EventDbHelper eventDb,
     ContactDbHelper contactDb,
-    SmsService smsService,
-  ) async {
+    SmsService smsService, {
+    String? senderName,
+  }) async {
     debugPrint(
       'Processing Event Broadcast: ${msg.title} (Event: ${msg.event_id})',
     );
@@ -425,6 +454,7 @@ class SchedulingService {
             batchId:
                 'event_${msg.id}_${DateTime.now().millisecondsSinceEpoch}', // Group these messages in history
             additionalTags: {'event_time': event.date.toIso8601String()},
+            senderName: senderName,
           );
         } catch (e) {
           debugPrint('Failed to send to ${contact.phone}: $e');

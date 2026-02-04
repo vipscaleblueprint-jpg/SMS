@@ -174,6 +174,7 @@ class SmsService {
     DateTime? scheduledTime,
     int simSlot = 1,
     Duration delay = const Duration(milliseconds: 200),
+    String? senderName,
   }) async* {
     int sentCount = 0;
     final batchId = 'batch_${DateTime.now().millisecondsSinceEpoch}';
@@ -189,6 +190,7 @@ class SmsService {
           simSlot: simSlot,
           batchId: batchId,
           batchTotal: batchTotal,
+          senderName: senderName,
         );
         // Small delay between sends if instant
         if (instant) {
@@ -212,6 +214,7 @@ class SmsService {
     String? batchId,
     int? batchTotal,
     Map<String, String>? additionalTags,
+    String? senderName,
   }) async {
     debugPrint(
       '🔵 sendFlexibleSms called - instant: $instant, scheduledTime: $scheduledTime',
@@ -239,6 +242,26 @@ class SmsService {
         .replaceAll(
           RegExp(r'\{\{\s*last_name\s*\}\}', caseSensitive: false),
           contact.last_name,
+        )
+        .replaceAll(
+          RegExp(r'\{\{\s*full_name\s*\}\}', caseSensitive: false),
+          contact.name,
+        )
+        .replaceAll(
+          RegExp(r'\{\{\s*fullName\s*\}\}', caseSensitive: false),
+          contact.name,
+        )
+        .replaceAll(
+          RegExp(r'\{\{\s*your_name\s*\}\}', caseSensitive: false),
+          senderName ?? 'User',
+        )
+        .replaceAll(
+          RegExp(r'\{\{\s*yourName\s*\}\}', caseSensitive: false),
+          senderName ?? 'User',
+        )
+        .replaceAll(
+          RegExp(r'\{\{\s*sender_name\s*\}\}', caseSensitive: false),
+          senderName ?? 'User',
         )
         .replaceAll(
           RegExp(r'\{\{\s*name\s*\}\}', caseSensitive: false),

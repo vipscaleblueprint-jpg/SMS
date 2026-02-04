@@ -15,6 +15,7 @@ class VariableTextEditor extends StatefulWidget {
       'First Name': '{{first_name}}',
       'Last Name': '{{last_name}}',
       'Full Name': '{{full_name}}',
+      'Your Name': '{{your_name}}',
     },
   });
 

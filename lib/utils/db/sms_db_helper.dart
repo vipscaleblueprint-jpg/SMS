@@ -176,4 +176,17 @@ class SmsDbHelper {
 
     return groupedHistory;
   }
+
+  Future<int> getSentCountToday() async {
+    final db = await database;
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
+
+    final result = await db.rawQuery(
+      "SELECT COUNT(*) as count FROM sms WHERE status = 'sent' AND (sentTimeStamps >= ? OR schedule_time >= ?)",
+      [todayStart, todayStart],
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
 }

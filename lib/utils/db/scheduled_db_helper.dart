@@ -525,4 +525,28 @@ class ScheduledDbHelper {
     );
     return maps.isNotEmpty;
   }
+
+  Future<int> getScheduledCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM scheduled_messages',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getSequenceCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM master_sequences',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> getSubscriptionCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM sequence_subscriptions',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
 }

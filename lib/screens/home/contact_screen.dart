@@ -12,14 +12,14 @@ import '../../widgets/list/contacts_list.dart';
 import '../../widgets/list/tags_list.dart';
 import '../../providers/contacts_provider.dart';
 import '../../providers/tags_provider.dart';
+import '../../providers/navigation_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../models/tag.dart';
 import '../../services/csv_service.dart';
 import 'add_contact_screen.dart';
-import '../send/send_screen.dart';
-
 import '../campaigns/campaigns_screen.dart';
-
+import '../dashboard/dashboard_screen.dart';
+import '../send/send_screen.dart';
 import '../../widgets/header_user.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -39,14 +39,16 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late int _currentIndex;
-
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
+    if (widget.initialIndex != 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(navigationProvider.notifier).setTab(widget.initialIndex);
+      });
+    }
     _checkPermissions();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -61,6 +63,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     _pages = [
+      const DashboardScreen(),
       const CampaignsScreen(),
       const SendScreen(),
       const ContactsPage(),
@@ -83,29 +86,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(navigationProvider);
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(child: _pages[_currentIndex]),
+      body: SafeArea(
+        child: IndexedStack(index: currentIndex, children: _pages),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        currentIndex: currentIndex,
+        onTap: (index) => ref.read(navigationProvider.notifier).setTab(index),
         selectedItemColor: const Color(0xFFFBB03B),
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.campaign),
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.campaign_outlined),
+            activeIcon: Icon(Icons.campaign),
             label: 'Campaigns',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.send_outlined),
+            activeIcon: Icon(Icons.send),
             label: 'Send',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.contact_page_outlined),
+            activeIcon: Icon(Icons.contact_page),
             label: 'Contacts',
           ),
         ],

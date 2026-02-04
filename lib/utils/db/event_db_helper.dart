@@ -102,4 +102,10 @@ class EventDbHelper {
     final db = await database;
     return await db.delete('events', where: 'id = ?', whereArgs: [id]);
   }
+
+  Future<int> getEventCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM events');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
 }

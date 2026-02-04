@@ -296,4 +296,10 @@ class ContactDbHelper {
     await db.delete('contacts');
     await db.delete('tags');
   }
+
+  Future<int> getContactCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM contacts');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../widgets/header_user.dart';
-import '../home/contact_screen.dart';
 import 'scheduled_detail_screen.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -379,40 +378,6 @@ class _ScheduledMessagesScreenState
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        currentIndex: 0, // Campaigns
-        onTap: (index) {
-          if (index == 0) return;
-          // Navigate to HomeScreen with selected index
-          // We use pushAndRemoveUntil to reset the stack and switch tabs
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => HomeScreen(initialIndex: index),
-            ),
-            (route) => false,
-          );
-        },
-        selectedItemColor: const Color(0xFFFBB03B),
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.campaign),
-            label: 'Campaigns',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.send_outlined),
-            label: 'Send',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.contact_page_outlined),
-            label: 'Contacts',
-          ),
-        ],
       ),
     );
   }

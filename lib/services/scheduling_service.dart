@@ -7,7 +7,6 @@ import '../utils/db/scheduled_db_helper.dart';
 import '../utils/db/sms_db_helper.dart';
 import '../utils/db/event_db_helper.dart';
 import 'dart:convert';
-import '../models/events.dart';
 import '../utils/scheduling_utils.dart';
 import '../models/sms.dart' as sms_model;
 import 'sms_service.dart';
